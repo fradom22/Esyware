@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h4 mb-3">Richiesta #{{ rh.id }} — {{ rh.client.display_name }}</h1>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+
+    <p class="text-muted">Inviata il {{ rh.created_at.strftime("%Y-%m-%d %H:%M") }}</p>
+
+    {% if grouped|length == 0 %}
+      <div class="alert alert-info">Nessun articolo in questa richiesta.</div>
+    {% else %}
+      {% for dep, items in grouped.items() %}
+
+        {# ---- fornitori unici per questo reparto ---- #}
+        {% set sup = namespace(names=[]) %}
+        {% for it in items %}
+          {% set sname =
+            (it.product.supplier.name
+              if (it.product and it.product.supplier and it.product.supplier.name)
+              else (it.product.supplier_name
+                    if (it.product and it.product.supplier_name)
+                    else (it.product.department.name
+                          if (it.product and it.product.department and it.product.department.name)
+                          else 'Senza fornitore'))) %}
+          {% if sname not in sup.names %}
+            {% set _ = sup.names.append(sname) %}
+          {% endif %}
+        {% endfor %}
+
+        <!-- CHIP intestazione reparto + fornitori -->
+        <div class="group-chip mt-3 mb-2">
+          <div class="chip-title">{{ dep or 'Senza reparto' }}</div>
+          {% if sup.names|length == 1 %}
+          {% endif %}
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-sm align-middle table-fixed w-100">
+            <colgroup>
+              <col style="width: 50%"><!-- Prodotto -->
+              <col style="width: 8ch"><!-- Qty -->
+              <col style="width: auto"><!-- Note -->
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Prodotto</th>
+                <th class="text-end">Qty</th>
+                <th class="ps-5 border-start">Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for it in items %}
+              <tr>
+                <td>{{ it.product.name }}</td>
+                <td class="text-end fw-semibold">{{ it.qty_requested|fmt_qty }}</td>
+                <td class="text-muted ps-5 border-start">{{ it.note or "" }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+      {% endfor %}
+    {% endif %}
+
+    <a href="{{ url_for('admin_requests', date=date_filter) }}" class="btn btn-outline-secondary">Torna indietro</a>
+
+  </div>
+</div>
+{% endblock %}
+
+<style>
+  .table-fixed{ table-layout: fixed; }
+  .table td.text-end{ font-variant-numeric: tabular-nums; }
+
+  /* chip reparto + fornitori */
+  .group-chip{
+    display:inline-block;
+    padding:.45rem .75rem;
+    border-radius:14px;
+    background:#f7f8fa;
+    border:1px solid var(--border);
+    box-shadow: 0 4px 14px rgba(0,0,0,.06) inset, 0 6px 16px rgba(0,0,0,.04);
+  }
+  .chip-title{ font-weight:800; line-height:1.1; }
+  .chip-sub{
+    margin-top:.15rem;
+    font-size:.92rem;
+    font-weight:600;
+    color: var(--muted);
+  }
+  .chip-suppliers{ margin-top:.2rem; display:flex; flex-wrap:wrap; gap:.25rem .35rem; }
+  .chip-badge{
+    display:inline-block;
+    padding:.15rem .5rem;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:#fff;
+    font-size:.85rem;
+    font-weight:600;
+    line-height:1.1;
+  }
+</style>

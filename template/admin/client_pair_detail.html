@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h1 class="h5 m-0">
+    Dettaglio giacenze — {{ client.display_name }}
+    <small class="text-muted">({{ date_filter }}, pair #{{ rank }})</small>
+  </h1>
+</div>
+
+{% if sala_request or cucina_request %}
+  <div class="mb-3 subtle">
+    {% if sala_request %}Sala: {{ sala_request.created_at|local_time }}{% endif %}
+    {% if sala_request and cucina_request %} · {% endif %}
+    {% if cucina_request %}Cucina: {{ cucina_request.created_at|local_time }}{% endif %}
+  </div>
+{% endif %}
+
+{% set total_areas = areas_blocks|length %}
+{% if not areas_blocks or total_areas == 0 %}
+  <div class="text-muted">Nessun articolo in questa coppia.</div>
+{% else %}
+  <div class="row g-3">
+    {% for area, blocks in areas_blocks.items() %}
+      <div class="col-12">
+        <div class="card shadow-sm h-100 mb-2">
+          <div class="card-body">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <h2 class="h6 m-0" style="text-transform: capitalize;">{{ area }}</h2>
+              <span class="badge area-badge">{{ area|replace('_',' ')|title }}</span>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-sm align-middle table-center-qty w-100">
+                <colgroup>
+                  <col>                       {# Prodotto (auto) #}
+                  <col style="width:120px">    {# Q.tà (fissa) #}
+                  <col>                       {# Note (auto) #}
+                </colgroup>
+                <tbody>
+                  {% for blk in blocks %}
+                    <tr>
+                      <td colspan="3">
+                        <div class="group-chip mt-2 mb-1">
+                          {{ blk.department or 'Senza reparto' }}
+                        </div>
+                      </td>
+                    </tr>
+
+                    <tr class="group-subhead">
+                      <th>Prodotto</th>
+                      <th class="text-end">Q.tà</th>
+                      <th class="text-muted">Note</th>
+                    </tr>
+
+                    {% for it in blk.rows %}
+                      <tr>
+                        <td class="prod-name">{{ it.product.name }}</td>
+                        <td class="text-end qty-cell">{{ it.qty_requested|fmt_qty }}</td>
+                        <td class="wrap-note">
+                          {{ it.note if it.note else '' }}
+                        </td>
+                      </tr>
+                    {% endfor %}
+
+                    {% if not loop.last %}
+                      <tr class="tr-sep"><td colspan="3"></td></tr>
+                    {% endif %}
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<div class="d-flex justify-content-between align-items-center mt-3">
+  <a href="{{ url_for('admin_dashboard', date=date_filter) }}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Torna alla dashboard
+  </a>
+
+  <form method="post"
+        action="{{ url_for('admin_request_pair_delete') }}"
+        onsubmit="return confirm('Eliminare TUTTA la coppia di giacenze (Sala e/o Cucina, se presenti)?');">
+    <input type="hidden" name="req_id_1" value="{{ sala_request.id if sala_request else '' }}">
+    <input type="hidden" name="req_id_2" value="{{ cucina_request.id if cucina_request else '' }}">
+    <input type="hidden" name="date" value="{{ date_filter }}">
+    <button class="btn btn-outline-danger">
+      <i class="bi bi-trash me-1"></i>Elimina giacenza
+    </button>
+  </form>
+</div>
+
+<style>
+/* ===== Badge area (tema) ===== */
+.area-badge{
+  background: rgba(0,187,255,.10);
+  color: var(--brand-ink);
+  border: 1px solid var(--brand);
+  font-weight: 700;
+}
+
+/* ===== Tabella riepilogo ===== */
+.table-center-qty{
+  table-layout: fixed;         /* fissa davvero la colonna quantità */
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.table-center-qty th, .table-center-qty td{ vertical-align: middle; }
+.table-center-qty thead th{
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+
+/* Colonne */
+.qty-cell{
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.prod-name,
+.wrap-note{
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* Mobile: quantità un filo più stretta */
+@media (max-width: 768px){
+  .table-center-qty colgroup col:nth-child(2){ width: 96px !important; }
+}
+
+/* ===== Chip reparto + subhead ===== */
+.group-chip{
+  display:inline-block;
+  padding:.35rem .7rem;
+  border-radius:999px;
+  background:#f7f8fa;
+  border:1px solid var(--border);
+  box-shadow: 0 4px 14px rgba(0,0,0,.06) inset, 0 6px 16px rgba(0,0,0,.04);
+  font-weight:700;
+}
+.group-subhead th{
+  font-weight:600;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+/* ===== Separatore full-width tra reparti (desktop e mobile) ===== */
+.tr-sep td{
+  padding: 0 !important;
+  border: 0 !important;
+}
+.tr-sep td::after{
+  content: "";
+  display: block;
+  height: 1px;
+  width: 100%;
+  background: var(--border);
+  margin: .6rem 0;
+}
+
+/* ===== Card bordo coerente con il tema ===== */
+.card{ border: 1px solid var(--border); }
+</style>
+
+{% endblock %}

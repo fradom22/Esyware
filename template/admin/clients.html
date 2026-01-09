@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1 class="h4 mb-3">Negozi</h1>
+
+<!-- Aggiunta client -->
+<form method="post" class="row g-2 align-items-end mb-3">
+  <input type="hidden" name="form_type" value="create_client">
+  <div class="col-md-3">
+    <label class="form-label">Nome punto vendita</label>
+    <input type="text" class="form-control" name="display_name" required>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label invisible">Azione</label>
+    <button class="btn btn-primary w-100" type="submit">Aggiungi</button>
+  </div>
+</form>
+
+<!-- Riquadro elenco client -->
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h2 class="h6 m-0">Elenco negozi</h2>
+      <span class="badge bg-light text-dark">{{ clients|length }}</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th class="text-end">Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in clients %}
+          <tr>
+            <td>
+              <span class="fw-semibold">{{ c.display_name }}</span>
+              {% if c.id == current_user.id %}<span class="badge bg-secondary ms-2">tu</span>{% endif %}
+            </td>
+            <td class="text-end">
+              <!-- Modifica -->
+              <button class="btn btn-outline-primary btn-sm" type="button"
+                      data-bs-toggle="modal" data-bs-target="#editClient-{{ c.id }}">
+                <i class="bi bi-pencil-square me-1"></i>Modifica
+              </button>
+
+              <!-- Elimina -->
+              <form method="post"
+                    action="{{ url_for('admin_delete_client', client_id=c.id) }}"
+                    class="d-inline js-confirm"
+                    data-confirm="Eliminare definitivamente '{{ c.display_name|e }}'?">
+                <button class="btn btn-outline-danger btn-sm" type="submit"
+                        {% if c.id == current_user.id or c.role != 'client' %}disabled{% endif %}>
+                  <i class="bi bi-trash me-1"></i>Elimina
+                </button>
+              </form>
+
+              <!-- Modal Edit -->
+              <div class="modal fade" id="editClient-{{ c.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                  <div class="modal-content rounded-4">
+                    <div class="modal-header">
+                      <h5 class="modal-title">Modifica negozio</h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+                    </div>
+                    <form method="post" action="{{ url_for('admin_update_client', client_id=c.id) }}">
+                      <div class="modal-body">
+                        <div class="mb-3">
+                          <label class="form-label">Nome punto vendita</label>
+                          <input type="text" class="form-control" name="display_name" value="{{ c.display_name }}" required>
+                        </div>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annulla</button>
+                        <button type="submit" class="btn btn-primary">Salva modifiche</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+              <!-- /Modal -->
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="2" class="text-muted">Nessun negozio.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+{# ====================== MACRO-AREE (riquadro separato) ====================== #}
+<h1 class="h4 mb-3">Macro-aree</h1>
+
+<!-- Aggiunta macro-area (stile identico ai negozi) -->
+<form method="post" action="{{ url_for('admin_macro_area_create') }}" class="row g-2 align-items-end mb-3">
+  <div class="col-md-3">
+    <label class="form-label">Nome macro-area</label>
+    <input type="text" class="form-control" name="name" placeholder="es. ortofrutta" required>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label invisible">Azione</label>
+    <button class="btn btn-primary w-100" type="submit">Aggiungi</button>
+  </div>
+</form>
+
+<!-- Elenco macro-aree -->
+<div class="card shadow-sm">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h2 class="h6 m-0">Elenco macro-aree</h2>
+      <span class="badge bg-light text-dark">{{ macro_areas|length }}</span>
+    </div>
+
+    {% if macro_areas and macro_areas|length > 0 %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th class="text-end">Azioni</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in macro_areas %}
+            <tr>
+              <td class="fw-semibold">{{ a.area }}</td>
+              <td class="text-end">
+                <!-- Rinomina -->
+                <button class="btn btn-outline-primary btn-sm" type="button"
+                        data-bs-toggle="modal" data-bs-target="#editArea-{{ a.id }}">
+                  <i class="bi bi-pencil-square me-1"></i>Rinomina
+                </button>
+
+                <!-- Elimina -->
+                <form method="post"
+                      action="{{ url_for('admin_macro_area_delete', area_id=a.id) }}"
+                      class="d-inline js-confirm"
+                      data-confirm="Eliminare la macro-area '{{ a.area|e }}'? Operazione possibile solo se non usata da alcun reparto.">
+                  <button class="btn btn-outline-danger btn-sm" type="submit">
+                    <i class="bi bi-trash me-1"></i>Elimina
+                  </button>
+                </form>
+
+                <!-- Modal rinomina -->
+                <div class="modal fade" id="editArea-{{ a.id }}" tabindex="-1" aria-hidden="true">
+                  <div class="modal-dialog">
+                    <div class="modal-content rounded-4">
+                      <div class="modal-header">
+                        <h5 class="modal-title">Rinomina macro-area</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+                      </div>
+                      <form method="post" action="{{ url_for('admin_macro_area_update_code', area_id=a.id) }}">
+                        <div class="modal-body">
+                          <label class="form-label">Nuovo nome</label>
+                          <input type="text" class="form-control" name="name" value="{{ a.area }}" required>
+                        </div>
+                        <div class="modal-footer">
+                          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annulla</button>
+                          <button type="submit" class="btn btn-primary">Salva</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+                <!-- /modal -->
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-muted">Nessuna macro-area.</div>
+    {% endif %}
+  </div>
+</div>
+{# ==================== /MACRO-AREE ======================= #}
+
+<script>
+  // Conferme "Elimina" senza inline JS che rompe le virgolette
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('form.js-confirm').forEach(function (f) {
+      f.addEventListener('submit', function (e) {
+        var msg = this.getAttribute('data-confirm') || 'Confermi?';
+        if (!confirm(msg)) e.preventDefault();
+      });
+    });
+  });
+</script>
+
+{% endblock %}

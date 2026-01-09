@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h4 mb-3">Utenti (account)</h1>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h2 class="h6">Crea nuovo utente</h2>
+    <form method="post" class="row g-2">
+      <div class="col-md-3">
+        <label class="form-label small">Username</label>
+        <input class="form-control form-control-sm" name="username" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small">Nome visibile</label>
+        <input class="form-control form-control-sm" name="display_name">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small">Password</label>
+        <input class="form-control form-control-sm" name="password" type="password" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small">Negozio</label>
+        <select class="form-select form-select-sm" name="client_id" required>
+          <option value="">— Scegli —</option>
+          {% for c in clients %}
+            <option value="{{ c.id }}">{{ c.display_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12 d-flex align-items-center gap-3">
+        <label class="small m-0">Accesso macro aree:</label>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="access_sala" id="accSala" checked>
+          <label class="form-check-label" for="accSala">Sala</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="access_cucina" id="accCucina" checked>
+          <label class="form-check-label" for="accCucina">Cucina</label>
+        </div>
+        <button class="btn btn-primary btn-sm ms-auto">Crea</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <h2 class="h6">Utenti esistenti</h2>
+    {% if employees|length == 0 %}
+      <div class="text-muted">Nessun utente.</div>
+    {% else %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Nome</th>
+              <th>Negozio</th>
+              <th>Macro aree</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in employees %}
+              <tr>
+                <td>{{ u.username }}</td>
+                <td>{{ u.display_name }}</td>
+                <td>
+                  {% set store = clients|selectattr('id','equalto',u.works_for_client_id)|list|first %}
+                  {{ store.display_name if store else '??' }}
+                </td>
+                <td>
+                  {% if u.access_sala %}<span class="badge bg-secondary me-1">Sala</span>{% endif %}
+                  {% if u.access_cucina %}<span class="badge bg-secondary">Cucina</span>{% endif %}
+                </td>
+                <td class="text-nowrap">
+                  <form method="post" action="{{ url_for('admin_users_delete', user_id=u.id) }}" onsubmit="return confirm('Eliminare questo utente?')">
+                    <button class="btn btn-sm btn-outline-danger">Elimina</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

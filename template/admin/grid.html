@@ -1,0 +1,852 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1 class="h4 mb-2">Griglia</h1>
+
+<div class="mb-3 d-flex flex-wrap gap-2 align-items-end">
+  {% if viewing_message %}
+    <div class="alert alert-secondary py-1 px-2 rounded-3 m-0">{{ viewing_message }}</div>
+    <a class="btn btn-outline-primary btn-sm" href="{{ url_for('admin_grid', dep_id=selected_dep_id) }}">
+      <i class="bi bi-pencil-square me-1"></i>Torna alla bozza
+    </a>
+  {% endif %}
+
+  {% if not read_only %}
+    <button class="btn btn-outline-primary btn-sm" form="gridForm" name="action" value="save">
+      <i class="bi bi-save me-1"></i>Salva bozza
+    </button>
+    {% if active_plan and active_plan.status != 'confermato' %}
+      <button class="btn btn-success btn-sm" form="gridForm" name="action" value="confirm">
+        <i class="bi bi-check2-circle me-1"></i>Conferma
+      </button>
+    {% endif %}
+    <button class="btn btn-outline-secondary btn-sm" type="button" id="btnReset">
+      <i class="bi bi-eraser me-1"></i>Azzera tutti
+    </button>
+  {% endif %}
+
+ {% set current_dep = departments|selectattr('id','equalto',selected_dep_id)|first %}
+  <div class="ms-auto position-relative">
+    <div class="dropdown">
+      <button
+        class="dep-picker dropdown-toggle"
+        id="depDropdown"
+        type="button"
+        data-bs-toggle="dropdown"
+        aria-expanded="false">
+        <div class="dep-icon"><i class="bi bi-diagram-3"></i></div>
+        <div class="dep-body">
+          <div class="dep-label">Fornitore</div>
+          <div class="dep-current" id="depCurrent">{{ current_dep.name if current_dep else '—' }}</div>
+        </div>
+      </button>
+
+      <ul class="dropdown-menu dropdown-menu-end dep-menu shadow" aria-labelledby="depDropdown" id="depMenu">
+        {% for d in departments %}
+        <li>
+          <button type="button"
+                  class="dropdown-item d-flex align-items-center gap-2 dep-item"
+                  data-dep-id="{{ d.id }}">
+            <span class="status-dot" data-dep="{{ d.id }}"></span>
+            <span>{{ d.name }}</span>
+          </button>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+{# ---------- RECAP BOZZA (solo quando lavori sulla bozza) ---------- #}
+{% if show_recap and recap_rows and not read_only %}
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h2 class="h5 m-0">Recap {{ active_plan.status }} — #{{ active_plan.id }}</h2>
+      <div class="subtle small">Creato il <span data-utc="{{ active_plan.created_at.isoformat() }}"></span></div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <tbody>
+          {% set rows_sorted = recap_rows | sort(attribute='product.department.name') %}
+          {% for grp in rows_sorted | groupby('product.department.name') %}
+            <tr>
+              <td colspan="3">
+                <div class="group-chip mt-2 mb-1">
+                  {{ grp.grouper or 'Senza reparto' }}
+                </div>
+              </td>
+            </tr>
+            <tr class="group-subhead">
+              <th>Prodotto</th>
+              <th class="text-end">Tot. Da Caricare</th>
+              {# <th class="text-end">Tot. Da Togliere</th> #}
+              <th class="col-details">Dettaglio per negozio</th>
+            </tr>
+            {% for r in grp.list | sort(attribute='product.name') %}
+              <tr>
+                <td>{{ r.product.name }}</td>
+                <td class="text-end fw-semibold">{{ r.tot_in|fmt_qty }}</td>
+                {# <td class="text-end fw-semibold">{{ r.tot_out }}</td> #}
+                <td class="text-muted col-details">
+                  {% for b in r.breakdown %}
+                    {% if b.in %}<span class="me-2">{{ b.client }}: +{{ b.in|fmt_qty }}</span>{% endif %}
+                    {# {% if b.out %}<span class="me-2">{{ b.client }}: −{{ b.out }}</span>{% endif %} #}
+                  {% endfor %}
+                </td>
+              </tr>
+            {% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if active_plan and active_plan.status != 'confermato' %}
+      <form method="post" class="mt-2">
+        <button class="btn btn-success btn-sm" name="action" value="confirm">
+          <i class="bi bi-check2-circle me-1"></i>Conferma piano
+        </button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Carta griglia -->
+<div class="grid-shell">
+  <div class="grid-scroll">
+    <form method="post" id="gridForm">
+      <input type="hidden" name="dep_id" value="{{ selected_dep_id }}">
+      <input type="hidden" name="form_source" value="grid">
+      <table class="table table-borderless align-middle table-grid w-100 m-0">
+        <colgroup>
+          <col style="width:240px"><!-- Prodotto -->
+          {% for c in clients %}
+            <col style="width:95px"><!-- Consigliata -->
+            <col style="width:95px"><!-- Giacenza -->
+            <col style="width:90px"><!-- Mancante -->
+            <col style="width:90px"><!-- Da Caricare -->
+            {# <col style="width:90px"><!-- Da Togliere --> #}
+          {% endfor %}
+        </colgroup>
+
+        <thead class="grid-thead">
+          <tr>
+            <th class="sticky-col">Prodotto</th>
+            {% for c in clients %}
+              <th class="text-center {% if not loop.first %}sep-left{% endif %}" colspan="4">
+                <div class="client-head {{ 'client-head--green' if c.id in highlight_clients else '' }}">
+                  <i class="bi bi-shop me-1"></i>{{ c.display_name }}
+                </div>
+              </th>
+            {% endfor %}
+          </tr>
+          <tr>
+            <th class="sticky-col"></th>
+            {% for c in clients %}
+              <th class="text-center subtle {% if not loop.first %}sep-left{% endif %}">Consigliata</th>
+              <th class="text-center subtle">Giacenza</th>
+              <th class="text-center subtle">Mancante</th>
+              <th class="text-center subtle">+</th>
+              {# <th class="text-center subtle">-</th> #}
+            {% endfor %}
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for p in products %}
+          <tr class="grid-row">
+            <th scope="row" class="sticky-col product-cell">
+              <div class="prod-name">{{ p.name }}</div>
+            </th>
+
+            {% for c in clients %}
+              {% set stock = received.get(c.id, {}).get(p.id, 0) %}
+              {% set rec_qty = recommended.get((c.id, p.id), 0) %}
+              {% set to_add = rec_qty - stock %}
+              {% if to_add < 0 %}{% set to_add = 0 %}{% endif %}
+
+              {# 1) Consigliata: click-to-edit #}
+              <td class="text-center {% if not loop.first %}sep-left{% endif %}">
+                <button type="button"
+                        class="btn btn-link p-0 rec-btn"
+                        data-client="{{ c.id }}"
+                        data-product="{{ p.id }}"
+                        data-current="{{ rec_qty }}"
+                        {{ 'disabled' if read_only else '' }}>
+                  <span id="recqty-c{{c.id}}-p{{p.id}}"
+                        class="rec-badge {{ 'has-value' if rec_qty|float > 0 else '' }}">
+                    {{ rec_qty|fmt_qty }}
+                  </span>
+                </button>
+              </td>
+
+              {# 2) Giacenza (pill blu solo se > 0) #}
+              <td class="text-center">
+                {% set stock_val = stock|float %}
+                <span id="stock-c{{c.id}}-p{{p.id}}"
+                      class="{{ 'metric' if stock_val > 0 else 'metric-zero' }}">
+                  {{ stock|fmt_qty }}
+                </span>
+              </td>
+
+              {# 3) Da aggiungere = max(0, Consigliata - Giacenza) #}
+              <td class="text-center">
+                <span id="toadd-c{{c.id}}-p{{p.id}}"
+                      class="toadd-badge {{ 'need' if to_add|float > 0 else '' }}">
+                  {{ to_add|fmt_qty }}
+                </span>
+              </td>
+
+              {# 4) Da Caricare #}
+              <td>
+                {% set v_in = (plan_map.get((c.id, p.id), {}).get('in', 0) | fmt_qty) %}
+                <input type="text" inputmode="decimal"
+                      class="form-control form-control-sm grid-input input-in text-end"
+                      name="in_{{ c.id }}_{{ p.id }}"
+                      value="{{ '' if v_in == '0' else v_in }}"
+                      data-pair="c{{c.id}}p{{p.id}}" data-kind="in" data-touched="0"
+                      placeholder="0" {{ 'disabled' if read_only else '' }}>
+              </td>
+
+              {# 5) Da Togliere (DISABILITATO) #}
+              {#
+              <td>
+                <input type="number" min="0" inputmode="numeric" pattern="[0-9]*"
+                       class="form-control form-control-sm grid-input input-out text-end"
+                       name="out_{{ c.id }}_{{ p.id }}"
+                       value="{{ plan_map.get((c.id, p.id), {}).get('out', 0) }}"
+                       data-pair="c{{c.id}}p{{p.id}}" data-kind="out"
+                       placeholder="0" {{ 'disabled' if read_only else '' }}>
+              </td>
+              #}
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </form>
+  </div>
+</div>
+
+{# ---------- ULTIMO RECAP CONFERMATO ---------- #}
+{% if latest_confirmed and latest_confirmed_recap %}
+<div class="card shadow-sm mt-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h2 class="h6 m-0">Ultimo recap confermato</h2>
+      <div class="subtle small">
+        #{{ latest_confirmed.id }} — <span data-utc="{{ latest_confirmed.created_at.isoformat() }}"></span>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <tbody>
+          {% set rows_sorted = latest_confirmed_recap | sort(attribute='product.department.name') %}
+          {% for grp in rows_sorted | groupby('product.department.name') %}
+            <tr>
+              <td colspan="3">
+                <div class="group-chip mt-2 mb-1">
+                  {{ grp.grouper or 'Senza reparto' }}
+                </div>
+              </td>
+            </tr>
+            <tr class="group-subhead">
+              <th>Prodotto</th>
+              <th class="text-end">Tot. Da Caricare</th>
+              {# <th class="text-end">Tot. Da Togliere</th> #}
+              <th class="col-details">Dettaglio per negozio</th>
+            </tr>
+            {% for r in grp.list | sort(attribute='product.name') %}
+              <tr>
+                <td>{{ r.product.name }}</td>
+                <td class="text-end fw-semibold">{{ r.tot_in|fmt_qty }}</td>
+                {# <td class="text-end fw-semibold">{{ r.tot_out }}</td> #}
+                <td class="text-muted col-details">
+                  {% for b in r.breakdown %}
+                    {% if b.in %}<span class="me-2">{{ b.client }}: +{{ b.in|fmt_qty }}</span>{% endif %}
+                    {# {% if b.out %}<span class="me-2">{{ b.client }}: −{{ b.out }}</span>{% endif %} #}
+                  {% endfor %}
+                </td>
+              </tr>
+            {% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center mt-2">
+      <a class="btn btn-outline-dark btn-sm"
+        href="{{ url_for('admin_grid', plan_id=latest_confirmed.id, dep_id=selected_dep_id) }}">
+        <i class="bi bi-grid-3x3-gap me-1"></i>Vedi griglia
+      </a>
+
+      <div class="d-flex align-items-center gap-2">
+        <a class="btn btn-primary btn-sm"
+          href="{{ url_for('admin_grid_plan_download', plan_id=latest_confirmed.id) }}">
+          <i class="bi bi-download me-1"></i>PDF singolo
+        </a>
+        <a class="btn btn-primary btn-sm"
+          href="{{ url_for('admin_grid_plan_download_suppliers', plan_id=latest_confirmed.id) }}">
+          <i class="bi bi-folder-symlink me-1"></i>ZIP fornitori
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ---------- FILTRO DATA + RECAP PRECEDENTI ---------- #}
+<div class="card shadow-sm mt-4">
+  <div class="card-body">
+
+    <div class="prev-filter-bar d-flex flex-wrap  justify-content-between mb-2 gap-2">
+      <h2 class="h6 m-0">Recap Precedenti</h2>
+
+      <form method="get" action="{{ url_for('admin_grid') }}" class="d-flex flex-wrap align-items-end gap-2 m-0">
+        <input type="hidden" name="dep_id" value="{{ selected_dep_id }}">
+        <div>
+          <label for="from" class="form-label small m-0">Da</label>
+          <input type="date" class="form-control form-control-sm" id="from" name="from" value="{{ date_from or '' }}">
+        </div>
+        <div>
+          <label for="to" class="form-label small m-0">A</label>
+          <input type="date" class="form-control form-control-sm" id="to" name="to" value="{{ date_to or '' }}">
+        </div>
+        <button class="btn btn-outline-dark btn-sm" type="submit" title="Filtra">
+          <i class="bi bi-filter"></i>
+        </button>
+        {% if date_from or date_to %}
+          <a class="btn btn-link btn-sm p-0" href="{{ url_for('admin_grid', dep_id=selected_dep_id) }}" title="Azzera filtro">
+            <i class="bi bi-x-circle"></i>
+          </a>
+        {% endif %}
+      </form>
+    </div>
+
+    {% if filtered_plans|length == 0 and (date_from or date_to) %}
+      <div class="text-muted mt-3">Nessun recap nel periodo selezionato.</div>
+    {% endif %}
+
+    {% for pl in filtered_plans %}
+      {% set rows = filtered_recaps.get(pl.id, []) %}
+      <div class="card mt-3">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+              <strong>#{{ pl.id }}</strong>
+              <span class="subtle small ms-2"><span data-utc="{{ pl.created_at.isoformat() }}"></span></span>
+              <span class="badge {{ 'bg-success' if pl.status=='confermato' else 'bg-secondary' }} ms-2">{{ pl.status }}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <a class="btn btn-outline-dark btn-sm"
+                href="{{ url_for('admin_grid', plan_id=pl.id, dep_id=selected_dep_id) }}">
+                <i class="bi bi-grid-3x3-gap me-1"></i>Vedi griglia
+              </a>
+              <a class="btn btn-primary btn-sm"
+                href="{{ url_for('admin_grid_plan_download', plan_id=pl.id) }}">
+                <i class="bi bi-download me-1"></i>PDF singolo
+              </a>
+              <a class="btn btn-primary btn-sm"
+                href="{{ url_for('admin_grid_plan_download_suppliers', plan_id=pl.id) }}">
+                <i class="bi bi-folder-symlink me-1"></i>ZIP fornitori
+              </a>
+            </div>
+          </div>
+
+          {% if rows|length == 0 %}
+            <div class="text-muted">Nessun dettaglio.</div>
+          {% else %}
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <tbody>
+                  {% set rows_sorted = rows | sort(attribute='product.department.name') %}
+                  {% for grp in rows_sorted | groupby('product.department.name') %}
+                    <tr>
+                      <td colspan="3">
+                        <div class="group-chip mt-2 mb-1">
+                          {{ grp.grouper or 'Senza reparto' }}
+                        </div>
+                      </td>
+                    </tr>
+                    <tr class="group-subhead">
+                      <th>Prodotto</th>
+                      <th class="text-end">Tot. Da Caricare</th>
+                      {# <th class="text-end">Tot. Da Togliere</th> #}
+                      <th class="col-details">Dettaglio per negozio</th>
+                    </tr>
+                    {% for r in grp.list | sort(attribute='product.name') %}
+                      <tr>
+                        <td>{{ r.product.name }}</td>
+                        <td class="text-end fw-semibold">{{ r.tot_in|fmt_qty }}</td>
+                        {# <td class="text-end fw-semibold">{{ r.tot_out }}</td> #}
+                        <td class="text-muted col-details">
+                          {% for b in r.breakdown %}
+                            {% if b.in %}<span class="me-2">{{ b.client }}: +{{ b.in|fmt_qty }}</span>{% endif %}
+                            {# {% if b.out %}<span class="me-2">{{ b.client }}: −{{ b.out }}</span>{% endif %} #}
+                          {% endfor %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+
+<script>
+(() => {
+  // ====== SEGNALINI VERDE/ROSSO FORNITORI (sessionStorage, reset quando esci) ======
+  const SEEN_KEY = 'gridSeenDeps';
+  const STAY_KEY = 'gridStay';
+
+  const getSeen = () => {
+    try { return new Set(JSON.parse(sessionStorage.getItem(SEEN_KEY) || '[]')); }
+    catch { return new Set(); }
+  };
+  const saveSeen = (set) => sessionStorage.setItem(SEEN_KEY, JSON.stringify([...set]));
+
+  function paintStatusDots(){
+    const seen = getSeen();
+    document.querySelectorAll('.status-dot').forEach(dot => {
+      const id = Number(dot.dataset.dep);
+      dot.classList.toggle('seen',  seen.has(id));
+      dot.classList.toggle('unseen', !seen.has(id));
+    });
+  }
+
+  // Marca come "visto" il reparto corrente
+  const currentDepId = Number('{{ selected_dep_id|default(0, true) }}');
+  if (currentDepId) { const s = getSeen(); s.add(currentDepId); saveSeen(s); }
+
+  // Cambio fornitore via dropdown
+  document.querySelectorAll('.dep-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.depId;
+      if (!id) return;
+      sessionStorage.setItem(STAY_KEY, '1');           // sto restando dentro la griglia
+      const url = new URL(window.location.href);
+      url.searchParams.set('dep_id', id);
+      url.searchParams.delete('show_recap');           // no “finestra recap” appesa
+      window.location.href = url.toString();
+    });
+  });
+
+  // Uscendo davvero dalla griglia (altra pagina / logout) azzero i "visti"
+  window.addEventListener('pagehide', () => {
+    if (sessionStorage.getItem(STAY_KEY) === '1') {
+      sessionStorage.removeItem(STAY_KEY);
+    } else {
+      sessionStorage.removeItem(SEEN_KEY);
+    }
+  });
+
+  // ====== GRIGLIA: autosave + util ======
+  function parseNum(val){
+    if (val === null || val === undefined) return 0;
+    const v = String(val).trim().replace(',', '.');
+    const n = parseFloat(v);
+    return isNaN(n) || n < 0 ? 0 : n;
+  }
+  function numToString(n){ return (parseFloat(n) || 0).toString(); }
+
+  async function saveCellAjax(clientId, productId, kind, value){
+    try{
+      const res = await fetch('{{ url_for("admin_grid_save_ajax") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: clientId, product_id: productId, kind, value: parseNum(value) })
+      });
+      return await res.json();
+    }catch(e){ return { ok:false, error: String(e) }; }
+  }
+
+  // Debounce semplice per input
+  const debounceMap = new Map();
+  function debounced(fn, key, wait=300){
+    clearTimeout(debounceMap.get(key));
+    const t = setTimeout(fn, wait);
+    debounceMap.set(key, t);
+  }
+
+  // Normalizza input + autosave
+  document.querySelectorAll('input.grid-input').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const el = e.target;
+      let cleaned = String(el.value).replace(',', '.').replace(/[^0-9.]/g, '');
+      const parts = cleaned.split('.');
+      if (parts.length > 2) cleaned = parts.shift() + '.' + parts.join('');
+      el.value = cleaned;
+
+      el.dataset.touched = "1";
+      const [_, clientId, productId] = el.name.split('_'); // in_CLIENT_PRODUCT
+      debounced(() => saveCellAjax(+clientId, +productId, el.dataset.kind, parseNum(el.value)), el.name);
+    });
+  });
+
+  // Autofill iniziale del "+" = max(0, Consigliata - Giacenza), se non toccato
+  (function autoFillPlus(){
+    document.querySelectorAll('input.grid-input.input-in').forEach(inp => {
+      if (inp.disabled) return;
+      if (inp.dataset.touched === "1") return;
+      if (parseNum(inp.value) > 0) return;
+
+      const [_, clientId, productId] = inp.name.split('_');
+      const recEl   = document.getElementById(`recqty-c${clientId}-p${productId}`);
+      const stockEl = document.getElementById(`stock-c${clientId}-p${productId}`);
+      const rec   = parseNum(recEl ? recEl.textContent : 0);
+      const stock = parseNum(stockEl ? stockEl.textContent : 0);
+      const toAdd = Math.max(0, rec - stock);
+      if (toAdd > 0){
+        inp.value = numToString(toAdd);
+        debounced(() => saveCellAjax(+clientId, +productId, 'in', toAdd), inp.name, 10);
+      }
+    });
+  })();
+
+  // Click su “Consigliata” → prompt + salvataggio + sync badge/field "+"
+  document.querySelectorAll('.rec-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (btn.hasAttribute('disabled')) return;
+
+      const clientId  = parseInt(btn.dataset.client, 10);
+      const productId = parseInt(btn.dataset.product, 10);
+      const current   = parseNum(btn.dataset.current || '0');
+
+      const input = prompt('Imposta quantità consigliata', String(current));
+      if (input === null) return;
+
+      const newVal = parseNum(input);
+      if (newVal !== current) {
+        const ok = confirm(`Confermi la modifica da ${numToString(current)} a ${numToString(newVal)}?`);
+        if (!ok) return;
+      }
+
+      try{
+        const res  = await fetch('{{ url_for("admin_grid_set_recommended") }}', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ client_id: clientId, product_id: productId, value: newVal })
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || 'Errore salvataggio');
+
+        btn.dataset.current = numToString(newVal);
+        const recSpan = document.getElementById(`recqty-c${clientId}-p${productId}`);
+        if (recSpan){
+          recSpan.textContent = numToString(newVal);
+          recSpan.classList.toggle('has-value', parseNum(newVal) > 0);
+        }
+        const stockEl = document.getElementById(`stock-c${clientId}-p${productId}`);
+        const toAdd   = Math.max(0, parseNum(newVal) - parseNum(stockEl ? stockEl.textContent : 0));
+        const toAddEl = document.getElementById(`toadd-c${clientId}-p${productId}`);
+        if (toAddEl){
+          toAddEl.textContent = numToString(toAdd);
+          toAddEl.classList.toggle('need', toAdd > 0);
+        }
+        const plusInput = document.querySelector(`input[name="in_${clientId}_${productId}"]`);
+        if (plusInput && !plusInput.disabled){
+          const touched = plusInput.dataset.touched === "1";
+          const curr    = parseNum(plusInput.value);
+          if (!touched || curr === 0){
+            plusInput.value = numToString(toAdd);
+            saveCellAjax(clientId, productId, 'in', toAdd);
+          }
+        }
+      }catch(e){ alert('Non sono riuscito a salvare la quantità consigliata.'); }
+    });
+  });
+
+  // Azzera tutti (solo UI)
+  document.getElementById('btnReset')?.addEventListener('click', () => {
+    document.querySelectorAll('input.grid-input').forEach(i => {
+      i.value = 0; i.dataset.touched = "0";
+    });
+  });
+
+  // Scroll orizzontale: wheel + drag (disabilitato su campi interattivi)
+  function isInteractive(el){ return el && el.closest('input, textarea, select, button, [contenteditable="true"]'); }
+  document.querySelectorAll('.grid-scroll').forEach(scroller => {
+    scroller.addEventListener('wheel', (e) => {
+      if (scroller.scrollWidth <= scroller.clientWidth) return;
+      if (isInteractive(e.target)) return;
+      const before = scroller.scrollLeft;
+      scroller.scrollLeft += e.deltaY;
+      if (scroller.scrollLeft !== before) e.preventDefault();
+    }, { passive: false });
+
+    let isDown = false, startX = 0, startLeft = 0;
+    scroller.addEventListener('mousedown', (e) => {
+      if (e.button !== 0 || isInteractive(e.target)) return;
+      isDown = true; startX = e.pageX; startLeft = scroller.scrollLeft;
+      scroller.classList.add('dragging');
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!isDown) return;
+      scroller.scrollLeft = startLeft - (e.pageX - startX);
+    });
+    window.addEventListener('mouseup', () => {
+      isDown = false; scroller.classList.remove('dragging');
+    });
+  });
+
+  // Prima pittura dei puntini
+  paintStatusDots();
+
+
+  // ====== MOBILE: colonna "Prodotto" larga quanto il nome più lungo (con limiti) ======
+  function computeProdColWidthMobile(){
+    if (!window.matchMedia('(max-width: 576px)').matches) return;
+
+    const names = Array.from(document.querySelectorAll('.product-cell .prod-name'));
+    if (!names.length) return;
+
+    // prendi la larghezza "intrinseca" necessaria (senza andare a capo)
+    let maxNameWidth = 0;
+    names.forEach(el => {
+      // scrollWidth tiene conto del contenuto intero
+      const w = Math.ceil(el.scrollWidth);
+      if (w > maxNameWidth) maxNameWidth = w;
+    });
+
+    // padding/aria della cella
+    const extraPadding = 28; // circa padding + bordo sinistro sticky
+    let target = maxNameWidth + extraPadding;
+
+    // Limiti: non meno di 120px e non più del 55% della viewport
+    const MIN = 120;
+    const MAX = Math.floor(window.innerWidth * 0.55);
+    target = Math.max(MIN, Math.min(target, MAX));
+
+    // applica alla root: usata nel CSS sopra
+    document.documentElement.style.setProperty('--prod-col-w', `${target}px`);
+  }
+
+  // calcolo iniziale + ricalcolo su resize/orientamento (debounced)
+  let _cwTimer;
+  function recomputeProdColWidthDebounced(){
+    clearTimeout(_cwTimer);
+    _cwTimer = setTimeout(computeProdColWidthMobile, 100);
+  }
+
+  window.addEventListener('DOMContentLoaded', computeProdColWidthMobile);
+  window.addEventListener('resize', recomputeProdColWidthDebounced);
+  window.addEventListener('orientationchange', recomputeProdColWidthDebounced);
+
+})();
+</script>
+
+
+
+<style>
+/* ====== Dropdown fornitori “pill” ====== */
+.dep-picker{
+  display:flex; align-items:center; gap:12px;
+  padding:10px 14px;
+  border:1px solid var(--border);
+  border-radius:16px;
+  background: linear-gradient(180deg,#ffffff,#f9fbff);
+  box-shadow: 0 8px 22px rgba(0,0,0,.06);
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+  cursor:pointer;
+}
+.dep-picker:hover{
+  transform: translateY(-1px);
+  border-color:#dbe3f5;
+  box-shadow: 0 12px 28px rgba(0,0,0,.08);
+}
+.dep-picker.dropdown-toggle::after{ margin-left:.4rem; }
+
+.dep-icon{
+  width:38px; height:38px; flex:0 0 38px;
+  display:grid; place-items:center;
+  border-radius:12px;
+  background: linear-gradient(180deg, var(--brand), var(--brand-ink));
+  color:#fff; font-size:1.1rem;
+  box-shadow: 0 6px 16px rgba(0,187,255,.25);
+}
+.dep-body{ display:flex; align-items:center; gap:10px; }
+.dep-label{
+  font-size:.78rem; font-weight:700; letter-spacing:.3px;
+  text-transform:uppercase; color:var(--muted);
+}
+.dep-current{
+  font-weight:700; white-space:nowrap;
+  max-width:36ch; overflow:hidden; text-overflow:ellipsis;
+}
+
+.dep-menu{ min-width:260px; border-radius:14px; padding:6px; }
+.dep-menu .dropdown-item{
+  display:flex; align-items:center; gap:10px;
+  border-radius:10px;
+  padding:.45rem .6rem;
+  font-weight:600;
+}
+.dep-menu .dropdown-item:hover{ background:#f2f6ff; }
+
+.status-dot{
+  width:10px; height:10px; border-radius:50%;
+  display:inline-block; flex:0 0 10px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
+}
+.status-dot.seen  { background:#22c55e; }  /* verde */
+.status-dot.unseen{ background:#ef4444; }  /* rosso  */
+
+@media (max-width:576px){
+  .dep-current{ max-width:22ch; }
+  .dep-label{ display:none; }
+}
+
+/* ====== Griglia ====== */
+.grid-shell{
+  border:1px solid var(--border);
+  border-radius:16px;
+  background:#fff;
+  overflow:hidden;
+}
+.grid-scroll{
+  overflow-x:auto; overflow-y:visible;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none; -ms-overflow-style:none;
+  position:relative; cursor:grab;
+}
+.grid-scroll::-webkit-scrollbar{ height:0; width:0; display:none; }
+.grid-scroll.dragging{ cursor:grabbing; }
+
+.table-grid{
+  table-layout:fixed;
+  border-collapse:separate;
+  border-spacing:0;
+  white-space:nowrap;
+}
+.grid-thead{
+  position:sticky; top:0; z-index:5;
+  background:#fff; border-bottom:1px solid var(--border);
+}
+.grid-thead th{
+  padding-top:.75rem; padding-bottom:.75rem;
+  font-weight:600; color:var(--muted);
+}
+.grid-thead tr:first-child th{ border-bottom:1px solid var(--border); }
+
+.table-grid .sticky-col{
+  position:sticky; left:0; z-index:6;
+  background:#fff; border-right:1px solid var(--border);
+  min-width:240px;
+}
+.sep-left{ position:relative; }
+.sep-left::before{
+  content:""; position:absolute; left:0; top:0; bottom:0;
+  width:0; box-shadow: inset 2px 0 0 #e6edf9; pointer-events:none;
+}
+.grid-row:nth-child(even){ background:rgba(0,0,0,.015); }
+
+/* badge “Giacenza” */
+.metric{
+  display:inline-block; min-width:2.2em; padding:.22rem .6rem; border-radius:999px;
+  background:#ff8c00; color:#fff; font-weight:600; font-variant-numeric:tabular-nums;
+}
+.metric-zero{
+  display:inline-block; min-width:2.2em; color:var(--muted);
+  font-variant-numeric:tabular-nums;
+}
+
+/* input quantità */
+.grid-input{
+  width:6.5ch; max-width:90px; padding:.25rem .4rem;
+  border-radius:12px; border:1px solid var(--border);
+  background: linear-gradient(180deg,#fff,#fafafa);
+  font-variant-numeric:tabular-nums;
+}
+.grid-input:focus{ border-color:var(--brand); box-shadow:0 0 0 .25rem var(--focus); }
+.input-in{ background: linear-gradient(180deg,#ffffff,#f5f9ff); }
+
+.product-cell .prod-name{
+  display:inline-block; max-width:220px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+
+/* recap precedenti (barra NON sticky: scorre con la pagina) */
+.prev-filter-bar{
+  position: static;     /* ← niente sticky */
+  top: auto;
+  z-index: auto;
+  background:#fff;
+  padding:6px 0;
+  border-bottom:1px solid var(--border);
+  box-shadow:none;      /* opzionale: rimuove l’ombra da barra “fissa” */
+}
+
+/* badge consigliata/da aggiungere */
+.rec-badge{
+  display:inline-block; min-width:2.2em; padding:.22rem .6rem; border-radius:999px;
+  background:#f0f2f7; color:#111; font-weight:600; font-variant-numeric:tabular-nums;
+}
+.rec-badge.has-value{ background:#e7f3ff; color:#0a56a3; }
+
+.toadd-badge{
+  display:inline-block; min-width:2.2em; padding:.22rem .6rem; border-radius:999px;
+  background:#f5f5f5; color:#333; font-weight:600; font-variant-numeric:tabular-nums;
+}
+.toadd-badge.need{ background:#fff3e3; color:#a35600; }
+
+/* chip intestazione gruppi nei recap */
+.group-chip{
+  display:inline-block; padding:.35rem .7rem; border-radius:999px;
+  background:#f7f8fa; border:1px solid var(--border);
+  box-shadow: 0 4px 14px rgba(0,0,0,.06) inset, 0 6px 16px rgba(0,0,0,.04);
+  font-weight:600;
+}
+.table .group-subhead th{
+  font-weight:600; color:var(--muted);
+  border-top:1px solid var(--border); background:transparent;
+}
+
+
+/* Pill nome negozio di default */
+.client-head{
+  display:inline-block;
+  padding:.30rem .60rem;
+  border-radius:12px;
+  background:#f7f8fa;
+  border:1px solid var(--border);
+  font-weight:700;
+  white-space:nowrap;
+}
+
+/* Variante “verde finché non arriva una nuova giacenza” */
+.client-head--green{
+  background:#e6f7ec;
+  border-color:#34c759;
+  color:#146c2e;
+  box-shadow: inset 0 0 0 1px rgba(52,199,89,.12);
+}
+
+/* colonna “dettaglio per negozio” più ariosa */
+.col-details{ padding-left:32px !important; border-left:none !important; }
+@media (min-width:1200px){ .col-details{ padding-left:75px !important; } }
+
+/* ===== Mobile: larghezza colonna "Prodotto" dinamica sul nome più lungo ===== */
+@media (max-width: 576px){
+  /* usa una variabile CSS calcolata da JS; fallback 160px */
+  .table-grid col:first-child{
+    width: var(--prod-col-w, 160px) !important;
+  }
+  .table-grid .sticky-col{
+    min-width: var(--prod-col-w, 160px) !important;
+    max-width: var(--prod-col-w, 160px) !important;
+  }
+  /* evita che il testo sbordi oltre la colonna calcolata */
+  .product-cell .prod-name{
+    max-width: calc(var(--prod-col-w, 160px) - 24px);
+  }
+}
+
+
+</style>
+{% endblock %}

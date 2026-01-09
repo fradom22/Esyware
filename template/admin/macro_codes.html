@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h4 mb-3">Codici macro-aree</h1>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <form method="post" class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">Codice per “sala”</label>
+        <input type="text" class="form-control" name="sala_code"
+               value="{{ sala.code if sala else '' }}" placeholder="(vuoto = nessun codice richiesto)">
+        <div class="form-text">Lascia vuoto per non richiedere codice.</div>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Codice per “cucina”</label>
+        <input type="text" class="form-control" name="cucina_code"
+               value="{{ cucina.code if cucina else '' }}" placeholder="(vuoto = nessun codice richiesto)">
+        <div class="form-text">Lascia vuoto per non richiedere codice.</div>
+      </div>
+      <div class="col-12">
+        <button class="btn btn-primary" type="submit">Salva</button>
+        <a class="btn btn-outline-secondary" href="{{ url_for('admin_departments') }}">Torna ai reparti</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h5 mb-3">
+  Giacenza combinata – {{ client.display_name }} <small class="text-muted">({{ date_filter }})</small>
+</h1>
+
+<a href="{{ url_for('admin_clients') }}" class="btn btn-outline-secondary btn-sm mb-3">
+  ← Torna ai negozi
+</a>
+
+{% set order = ['sala', 'cucina'] %}
+{% set labels = {'sala': 'Sala', 'cucina': 'Cucina'} %}
+
+{% for area in order %}
+  {% set rows = groups[area] %}
+  {% if rows and rows|length > 0 %}
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h2 class="h6 mb-3">{{ labels[area] }}</h2>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th style="width: 220px;">Reparto</th>
+                <th>Prodotto</th>
+                <th class="text-end" style="width: 120px;">Q.tà</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in rows %}
+              <tr>
+                <td class="text-muted">{{ r.product.department.name }}</td>
+                <td>{{ r.product.name }}</td>
+                <td class="text-end fw-semibold">{{ row.qty|fmt_qty }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+{% endfor %}
+
+{% if (groups['sala']|length == 0) and (groups['cucina']|length == 0) %}
+  <div class="alert alert-info">Nessun prodotto inviato in questa data.</div>
+{% endif %}
+{% endblock %}

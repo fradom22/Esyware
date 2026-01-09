@@ -1,0 +1,433 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h4 mb-3">Fornitori</h1>
+
+{# 1) CREA REPARTO (senza riquadro) #}
+<form method="post" class="row g-2 align-items-end mb-3">
+  <input type="hidden" name="form_type" value="create_dep">
+  <div class="col-md-4">
+    <label class="form-label">Nome fornitore</label>
+    <input type="text" class="form-control" name="name" required>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Macro area</label>
+    <select name="macro_area" class="form-select" required>
+      {% for m in macro_areas %}
+        <option value="{{ m.area }}">{{ m.area|capitalize }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label invisible">Azione</label>
+    <button class="btn btn-primary w-100" type="submit">Crea reparto</button>
+  </div>
+</form>
+
+{# 2) ELENCO REPARTI (in card) #}
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h2 class="h6 m-0">Elenco fornitori</h2>
+      <span class="badge bg-light text-dark">{{ departments|length }}</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Macro area</th>
+            <th class="text-end">Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in departments %}
+          <tr>
+            <td class="fw-semibold">{{ d.name }}</td>
+            <td><span class="badge bg-secondary">{{ d.macro_area|capitalize }}</span></td>
+            <td class="text-end">
+              <!-- Modifica reparto -->
+              <button class="btn btn-outline-primary btn-sm" type="button"
+                      data-bs-toggle="modal" data-bs-target="#editDep-{{ d.id }}">
+                <i class="bi bi-pencil-square me-1"></i>Modifica
+              </button>
+              <!-- Elimina reparto -->
+              <form method="post" action="{{ url_for('admin_delete_department', dep_id=d.id) }}"
+                    class="d-inline"
+                    onsubmit="return confirm('Eliminare definitivamente {{ d.name }}?');">
+                <button class="btn btn-outline-danger btn-sm" type="submit">
+                  <i class="bi bi-trash me-1"></i>Elimina
+                </button>
+              </form>
+
+              <!-- Modal edit reparto -->
+              <div class="modal fade" id="editDep-{{ d.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                  <div class="modal-content rounded-4">
+                    <div class="modal-header">
+                      <h5 class="modal-title">Modifica reparto</h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+                    </div>
+                    <form method="post" action="{{ url_for('admin_update_department', dep_id=d.id) }}">
+                      <div class="modal-body">
+                        <div class="mb-3">
+                          <label class="form-label">Nome reparto</label>
+                          <input type="text" class="form-control" name="name" value="{{ d.name }}" required>
+                        </div>
+                        <div class="mb-1">
+                          <label class="form-label">Macro area</label>
+                          <select class="form-select" name="macro_area">
+                            {% for m in macro_areas %}
+                              <option value="{{ m.area }}" {% if d.macro_area == m.area %}selected{% endif %}>
+                                {{ m.area|capitalize }}
+                              </option>
+                            {% endfor %}
+                          </select>
+                        </div>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annulla</button>
+                        <button type="submit" class="btn btn-primary">Salva</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+              <!-- /modal -->
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="text-muted">Nessun reparto.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# 3) DIVISORE #}
+<hr class="my-4">
+
+<h1 class="h4 mb-3">Utenti</h1>
+
+{# 4) CREA NUOVO UTENTE — stesso ingombro orizzontale (9 + 3) #}
+<form method="post" class="row g-2 align-items-end mb-3" id="userCreateForm">
+  <input type="hidden" name="form_type" value="create_user">
+
+  {# Colonna sinistra: tutti i campi (col-md-9) #}
+  <div class="col-12 col-md-9">
+    <div class="row g-2 align-items-end">
+      <div class="col-6 col-md-3">
+        <label class="form-label mb-1">Username</label>
+        <input name="username" class="form-control form-control-sm" required>
+      </div>
+
+      <div class="col-6 col-md-3">
+        <label class="form-label mb-1">Password</label>
+        <input name="password" type="password" class="form-control form-control-sm" required>
+      </div>
+
+      <div class="col-6 col-md-2">
+        <label class="form-label mb-1">Tipo account</label>
+        <select name="role" id="roleSelect" class="form-select form-select-sm">
+          <option value="employee" selected>Utente negozio</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+
+      {# --- EMPLOYEE ONLY --- #}
+      <div class="col-6 col-md-2 employee-only" id="empShopCol">
+        <label class="form-label mb-1">Negozio</label>
+        <select name="shop_id" id="shopSelect" class="form-select form-select-sm" required>
+          {% for s in shops %}
+            <option value="{{ s.id }}">{{ s.display_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-12 col-md-4 employee-only" id="empAreasCol">
+        <label class="form-label mb-1">Macro-aree abilitate</label>
+
+        <div class="d-flex flex-wrap gap-2" id="areasChips">
+          {% for m in macro_areas %}
+            {% set checked = (m.area in ['sala','cucina']) %}
+            <input type="checkbox"
+                   class="btn-check"
+                   id="areaNew-{{ m.area }}"
+                   name="areas[]"
+                   value="{{ m.area }}"
+                   {% if checked %}checked{% endif %}>
+            <label class="btn btn-sm btn-outline-primary rounded-pill px-3" for="areaNew-{{ m.area }}">
+              {{ m.area|capitalize }}
+            </label>
+          {% endfor %}
+        </div>
+
+        <div class="mt-1 small">
+          <button type="button" class="btn btn-link btn-sm p-0 me-2" data-check="all"  data-target="#areasChips">Seleziona tutto</button>
+          <button type="button" class="btn btn-link btn-sm p-0"      data-check="none" data-target="#areasChips">Nessuna</button>
+        </div>
+      </div>
+
+      {# --- ADMIN ONLY --- #}
+      <div class="col-12 col-md-4 admin-only d-none" id="adminLevelCol">
+        <label class="form-label mb-1">Permessi admin</label>
+        <select name="admin_level" id="adminLevel" class="form-select form-select-sm">
+          <option value="full" selected>Tutti i permessi</option>
+          <option value="partial">Parziali (no crea/elimina)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  {# Colonna destra: bottone (col-md-3) — allineato come "Crea reparto" #}
+  <div class="col-md-3 d-flex align-items-md-center justify-content-md-center mt-2 mt-md-0">
+    <button class="btn btn-primary w-100 w-md-auto px-4" type="submit">Crea utente</button>
+  </div>
+</form>
+
+{# ELENCO UTENTI #}
+<div class="card shadow-sm">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h2 class="h6 m-0">Elenco utenti (admin + negozi)</h2>
+      <span class="badge bg-light text-dark">{{ all_users|length }}</span>
+    </div>
+
+    {% set _uam = user_area_map|default({}) %}
+
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Username</th>
+            <th>Nome</th>
+            <th>Negozio</th>
+            <th>Accessi / Permessi</th>
+            <th class="text-end">Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in all_users %}
+          {% set is_admin = (u.role == 'admin') %}
+          <tr>
+            <td>
+              {% if is_admin %}
+                <span class="badge bg-primary">Admin</span>
+              {% else %}
+                <span class="badge bg-secondary">Utente negozio</span>
+              {% endif %}
+            </td>
+
+            <td class="fw-semibold">@{{ u.username }}</td>
+            <td>{{ u.display_name }}</td>
+
+            <td>
+              {% if not is_admin %}
+                {% set shop = shops|selectattr('id','equalto',u.works_for_client_id)|first %}
+                {{ shop.display_name if shop else '—' }}
+              {% else %} — {% endif %}
+            </td>
+
+            <td>
+              {% if not is_admin %}
+                {% set areas = _uam.get(u.id, []) %}
+                {% if areas and areas|length > 0 %}
+                  {% for a in areas %}
+                    <span class="badge bg-light text-dark me-1">{{ a|capitalize }}</span>
+                  {% endfor %}
+                {% else %}
+                  {# fallback: vecchi flag #}
+                  {% if u.access_sala %}<span class="badge bg-light text-dark me-1">Sala</span>{% endif %}
+                  {% if u.access_cucina %}<span class="badge bg-light text-dark">Cucina</span>{% endif %}
+                {% endif %}
+              {% else %}
+                {% set lvl = (u.admin_level or 'full') %}
+                {% if lvl == 'partial' %}
+                  <span class="badge bg-warning text-dark">Parziali</span>
+                {% else %}
+                  <span class="badge bg-success">Tutti i permessi</span>
+                {% endif %}
+              {% endif %}
+            </td>
+
+            <td class="text-end">
+              {% if is_admin %}
+                <button class="btn btn-outline-primary btn-sm" type="button"
+                        data-bs-toggle="modal" data-bs-target="#editAdm-{{ u.id }}">
+                  <i class="bi bi-pencil-square me-1"></i>Modifica
+                </button>
+              {% else %}
+                <button class="btn btn-outline-primary btn-sm" type="button"
+                        data-bs-toggle="modal" data-bs-target="#editEmp-{{ u.id }}">
+                  <i class="bi bi-pencil-square me-1"></i>Modifica
+                </button>
+              {% endif %}
+
+              <form method="post" action="{{ url_for('admin_users_delete', user_id=u.id) }}"
+                    class="d-inline"
+                    onsubmit="return confirm('Eliminare definitivamente {{ u.username }}?');">
+                <button class="btn btn-outline-danger btn-sm" type="submit"
+                        {% if is_admin_partial or (is_admin and u.id==current_user.id) %}disabled title="Operazione non consentita"{% endif %}>
+                  <i class="bi bi-trash me-1"></i>Elimina
+                </button>
+              </form>
+
+              {# ====== MODALE: MODIFICA EMPLOYEE ====== #}
+              {% if not is_admin %}
+              {% set areas_u = _uam.get(u.id, []) %}
+              <div class="modal fade" id="editEmp-{{ u.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                  <div class="modal-content rounded-4">
+                    <div class="modal-header">
+                      <h5 class="modal-title">Modifica utente (@{{ u.username }})</h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+                    </div>
+                    <form method="post" action="{{ url_for('admin_users_update', user_id=u.id) }}">
+                      <div class="modal-body">
+                        <div class="mb-2">
+                          <label class="form-label">Nome visibile</label>
+                          <input name="display_name" class="form-control" value="{{ u.display_name }}">
+                        </div>
+                        <div class="mb-2">
+                          <label class="form-label">Nuova password (opzionale)</label>
+                          <input name="password" type="password" class="form-control" placeholder="Lascia vuoto per non cambiare">
+                        </div>
+                        <div class="mb-2">
+                          <label class="form-label">Negozio</label>
+                          <select name="shop_id" class="form-select" required>
+                            {% for s in shops %}
+                              <option value="{{ s.id }}" {% if u.works_for_client_id==s.id %}selected{% endif %}>{{ s.display_name }}</option>
+                            {% endfor %}
+                          </select>
+                        </div>
+
+                        <div class="mb-2">
+                          <label class="form-label">Macro-aree abilitate</label>
+
+                          <div class="d-flex flex-wrap gap-2" id="areasChipsU-{{ u.id }}">
+                            {% for m in macro_areas %}
+                              {# fallback ai vecchi flag se non abbiamo mapping salvato #}
+                              {% set fallback_flag = (areas_u|length == 0 and ((m.area=='sala' and u.access_sala) or (m.area=='cucina' and u.access_cucina))) %}
+                              {% set checked = (m.area in areas_u) or fallback_flag %}
+                              <input type="checkbox"
+                                     class="btn-check"
+                                     id="areaU{{ u.id }}-{{ m.area }}"
+                                     name="areas[]"
+                                     value="{{ m.area }}"
+                                     {% if checked %}checked{% endif %}>
+                              <label class="btn btn-sm btn-outline-primary rounded-pill px-3" for="areaU{{ u.id }}-{{ m.area }}">
+                                {{ m.area|capitalize }}
+                              </label>
+                            {% endfor %}
+                          </div>
+
+                          <div class="mt-1 small">
+                            <button type="button" class="btn btn-link btn-sm p-0 me-2"
+                                    data-check="all"  data-target="#areasChipsU-{{ u.id }}">Seleziona tutto</button>
+                            <button type="button" class="btn btn-link btn-sm p-0"
+                                    data-check="none" data-target="#areasChipsU-{{ u.id }}">Nessuna</button>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annulla</button>
+                        <button type="submit" class="btn btn-primary">Salva</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+              {% endif %}
+
+              {# ====== MODALE: MODIFICA ADMIN ====== #}
+              {% if is_admin %}
+              <div class="modal fade" id="editAdm-{{ u.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                  <div class="modal-content rounded-4">
+                    <div class="modal-header">
+                      <h5 class="modal-title">Modifica admin (@{{ u.username }})</h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+                    </div>
+                    <form method="post" action="{{ url_for('admin_users_update', user_id=u.id) }}">
+                      <div class="modal-body">
+                        <div class="mb-2">
+                          <label class="form-label">Nome visibile</label>
+                          <input name="display_name" class="form-control" value="{{ u.display_name }}">
+                        </div>
+                        <div class="mb-2">
+                          <label class="form-label">Nuova password (opzionale)</label>
+                          <input name="password" type="password" class="form-control" placeholder="Lascia vuoto per non cambiare">
+                        </div>
+                        <div class="mb-1">
+                          <label class="form-label">Permessi admin</label>
+                          <select name="admin_level" class="form-select">
+                            <option value="full"    {% if (u.admin_level or 'full') == 'full' %}selected{% endif %}>Tutti i permessi</option>
+                            <option value="partial" {% if (u.admin_level or 'full') == 'partial' %}selected{% endif %}>Parziali (no crea/elimina)</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annulla</button>
+                        <button type="submit" class="btn btn-primary">Salva</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-muted">Nessun utente.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Ritocchino estetico per i chip toggle */
+  .btn-outline-primary.rounded-pill { border-width: 2px; }
+  .btn-check:checked + .btn-outline-primary {
+    background: #e7f1ff;
+    border-color: #0d6efd;
+    color: #0d6efd;
+  }
+</style>
+
+<script>
+  // Toggle campi in base al tipo account (admin vs employee)
+  const roleSelect   = document.getElementById('roleSelect');
+  const empShopCol   = document.getElementById('empShopCol');
+  const empAreasCol  = document.getElementById('empAreasCol');
+  const adminLevelCol= document.getElementById('adminLevelCol');
+  const shopSelect   = document.getElementById('shopSelect');
+
+  function syncUserForm() {
+    const isAdmin = roleSelect.value === 'admin';
+    empShopCol.classList.toggle('d-none', isAdmin);
+    empAreasCol.classList.toggle('d-none', isAdmin);
+    adminLevelCol.classList.toggle('d-none', !isAdmin);
+    if (shopSelect){
+      if (isAdmin) shopSelect.removeAttribute('required');
+      else shopSelect.setAttribute('required','required');
+    }
+  }
+  roleSelect.addEventListener('change', syncUserForm);
+  syncUserForm();
+
+  // Seleziona tutto / Nessuna per i gruppi di chip (create + modali)
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-check][data-target]');
+    if (!btn) return;
+    e.preventDefault();
+    const targetSel = btn.getAttribute('data-target');
+    const container = document.querySelector(targetSel);
+    if (!container) return;
+    const check = btn.getAttribute('data-check') === 'all';
+    container.querySelectorAll('input[type="checkbox"].btn-check').forEach(i => { i.checked = check; });
+  });
+</script>
+{% endblock %}

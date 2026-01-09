@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h4 mb-3">Prodotti</h1>
+
+<!-- Aggiunta prodotto -->
+<form method="post" class="row g-2 align-items-end mb-3">
+  <div class="col-md-5 col-lg-4">
+    <label class="form-label">Nome prodotto</label>
+    <input type="text" class="form-control" name="name" required>
+  </div>
+  <div class="col-md-5 col-lg-4">
+    <label class="form-label">Reparto</label>
+    <select class="form-select" name="department_id" required>
+      <option value="" disabled selected>Seleziona reparto…</option>
+      {% for d in departments %}
+        <option value="{{ d.id }}">{{ d.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2 col-lg-2">
+    <label class="form-label invisible">Azione</label>
+    <button class="btn btn-primary w-100" type="submit">Aggiungi</button>
+  </div>
+</form>
+
+<!-- Riquadro elenco prodotti -->
+<div class="card shadow-sm">
+  <div class="card-body">
+    <!-- Barra superiore: titolo + filtro ricerca -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+      <div class="d-flex align-items-center gap-2">
+        <h2 class="h6 m-0">Elenco prodotti</h2>
+        <span class="badge bg-light text-dark">{{ products|length }}</span>
+      </div>
+
+      <!-- Filtro ricerca (GET) -->
+      <form method="get" action="{{ url_for('admin_products') }}" class="d-flex align-items-end gap-2 m-0">
+        <div>
+          <label for="q" class="form-label small m-0">Cerca prodotto</label>
+          <input id="q" name="q" type="text"
+                 value="{{ q or '' }}"
+                 placeholder="es. pasta"
+                 class="form-control form-control-sm">
+        </div>
+        <button class="btn btn-primary btn-sm" type="submit" title="Filtra">
+          <i class="bi bi-search"></i>
+        </button>
+        {% if q %}
+          <a class="btn btn-link btn-sm p-0" href="{{ url_for('admin_products') }}" title="Azzera filtro">
+            <i class="bi bi-x-circle"></i>
+          </a>
+        {% endif %}
+      </form>
+    </div>
+
+    {% if q and products|length == 0 %}
+      <div class="text-muted my-2">Nessun prodotto trovato per "<strong>{{ q }}</strong>".</div>
+    {% endif %}
+
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>Prodotto</th>
+            <th>Reparto</th>
+            <th class="text-end">Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in products %}
+          <tr>
+            <td>{{ p.name }}</td>
+            <td class="text-muted">{{ p.department.name }}</td>
+            <td class="text-end">
+              <!-- Modifica -->
+              <button class="btn btn-outline-primary btn-sm" type="button"
+                      data-bs-toggle="modal" data-bs-target="#editProd-{{ p.id }}">
+                <i class="bi bi-pencil-square me-1"></i>Modifica
+              </button>
+
+              <!-- Elimina -->
+              <form method="post"
+                    action="{{ url_for('admin_delete_product', prod_id=p.id) }}"
+                    onsubmit="return confirm('Eliminare definitivamente il prodotto {{ p.name }}?');"
+                    class="d-inline">
+                <button class="btn btn-outline-danger btn-sm" type="submit">
+                  <i class="bi bi-trash me-1"></i>Elimina
+                </button>
+              </form>
+
+              <!-- Modal Edit -->
+              <div class="modal fade" id="editProd-{{ p.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                  <div class="modal-content rounded-4">
+                    <div class="modal-header">
+                      <h5 class="modal-title">Modifica prodotto</h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+                    </div>
+                    <form method="post" action="{{ url_for('admin_update_product', prod_id=p.id) }}">
+                      <div class="modal-body">
+                        <div class="mb-3">
+                          <label class="form-label">Nome prodotto</label>
+                          <input type="text" class="form-control" name="name" value="{{ p.name }}" required>
+                        </div>
+                        <div class="mb-1">
+                          <label class="form-label">Reparto</label>
+                          <select class="form-select" name="department_id" required>
+                            {% for d in departments %}
+                              <option value="{{ d.id }}" {% if d.id == p.department_id %}selected{% endif %}>{{ d.name }}</option>
+                            {% endfor %}
+                          </select>
+                        </div>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annulla</button>
+                        <button type="submit" class="btn btn-primary">Salva modifiche</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+              <!-- /Modal -->
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

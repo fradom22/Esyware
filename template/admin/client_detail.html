@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h4 mb-3">Giacenze totali (per prodotto)</h1>
+<p class="text-muted">Somma dell'<strong>ultima giacenza inviata</strong> da ciascun client.</p>
+
+{% if rows|length == 0 %}
+  <div class="alert alert-info">Nessuna giacenza inviata dai client.</div>
+{% else %}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th>Prodotto</th>
+          <th class="text-end">Totale</th>
+          <th>Dettaglio per client</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ r.product.name }}</td>
+          <td class="text-end">{{ r.total |fmt_qty }}</td>
+          <td class="text-muted">
+            {% for cname, qty in r.breakdown.items() %}
+              <span class="me-2">{{ cname }}: {{ qty|fmt_qty }}</span>
+            {% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endif %}
+
+<a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary mt-2">Torna alla dashboard</a>
+{% endblock %}

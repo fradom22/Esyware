@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Hero dentro una card: testo a sinistra, azioni a destra -->
+<section class="hero hero-split">
+  <div class="hero-left">
+    <div class="hero-logo-wrap">
+      <img src="{{ url_for('static', filename='img/prova-3.png') }}" alt="Logo">
+    </div>
+    <div class="hero-text">
+      <h1 class="h4 mb-1">Bentornato, {{ current_user.display_name or current_user.username }}</h1>
+      <div class="subtle">Gestione giacenze e anagrafiche</div>
+    </div>
+  </div>
+
+  <div class="hero-right">
+    <div class="mini-actions">
+      <a class="action-tile action-tile--orange" href="{{ url_for('admin_requests') }}">
+        <i class="bi bi-inboxes"></i>
+        <div><div class="fw-semibold">Giacenze ricevute</div><div class="subtle small">Storico completo</div></div>
+      </a>
+      <a class="action-tile action-tile--orange" href="{{ url_for('admin_stock_totals') }}">
+        <i class="bi bi-graph-up-arrow"></i>
+        <div><div class="fw-semibold">Giacenze totali</div><div class="subtle small">Somma per prodotto</div></div>
+      </a>
+    </div>
+
+    <a class="btn btn-grid-solid" href="{{ url_for('admin_grid') }}">
+      <i class="bi bi-grid-1x2"></i> Griglia
+    </a>
+  </div>
+</section>
+
+<!-- Filtro per data -->
+<form method="get" class="filter-bar mb-4">   {# opzionale: un filo più spazio #}
+  <div class="d-flex align-items-center gap-2">
+    <label for="date" class="form-label form-label-inline mb-0">Data</label>
+    <input id="date" type="date" class="form-control date-input" name="date" value="{{ date_filter }}">
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <button class="btn btn-primary" type="submit">
+      <i class="bi bi-funnel me-1"></i>Filtra
+    </button>
+    <a class="btn btn-outline-secondary" href="{{ url_for('admin_dashboard') }}">
+      <i class="bi bi-calendar-day me-1"></i>Oggi
+    </a>
+  </div>
+</form>
+
+<!-- Cards coppie giacenze -->
+<!-- Cards coppie giacenze -->
+<div class="row g-3">
+  {% for r in rows %}
+  <div class="col-12 col-md-6 col-xl-4">
+    <a class="text-decoration-none"
+       href="{{ url_for('admin_client_pair_detail', client_id=r.client_id, date_str=date_filter, rank=r.rank) }}">
+      <div class="card card-apple h-100">
+        <div class="card-body d-flex flex-column">
+          <div class="d-flex justify-content-between align-items-start">
+            <div class="title fs-5">{{ r.client_name }}</div>
+            <span class="k-badge">
+              <i class="bi bi-person-circle me-1"></i>{{ r.submitter_name or '—' }}
+            </span>
+          </div>
+
+          <div class="subtle mt-1">
+            {{ r.created_at|local_dt if r.created_at else "—" }}
+          </div>
+
+          <div class="text-center my-3">
+            {% if r.is_complete %}
+              <span class="flag-received">
+                <i class="bi bi-check-circle-fill"></i> Ricevuta
+              </span>
+            {% else %}
+              <span class="flag-partial">
+                <i class="bi bi-exclamation-triangle-fill"></i> Incompleta
+              </span>
+            {% endif %}
+          </div>
+
+          <div class="mt-auto d-flex justify-content-end">
+            <span class="btn btn-primary">Apri</span>
+          </div>
+        </div>
+      </div>
+    </a>
+  </div>
+  {% else %}
+  <div class="col-12">
+    <div class="text-muted">Nessuna giacenza per il giorno selezionato.</div>
+  </div>
+  {% endfor %}
+</div>
+
+
+
+{% endblock %}

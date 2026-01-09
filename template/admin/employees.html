@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h4 mb-3">Utenti (account con login)</h1>
+
+<form method="post" class="card p-3 mb-4" id="userForm">
+  <input type="hidden" name="form_type" value="create_user">
+  <div class="row g-2">
+    <div class="col-md-3">
+      <label class="form-label">Username</label>
+      <input name="username" class="form-control" required>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Nome visibile</label>
+      <input name="display_name" class="form-control">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Password</label>
+      <input name="password" type="password" class="form-control" required>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Tipo account</label>
+      <select name="role" id="role" class="form-select">
+        <option value="employee" selected>Utente negozio</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+  </div>
+
+  {# --- Campi per UTENTE NEGOZIO (role=employee) --- #}
+  <div id="employeeFields" class="mt-3">
+    <div class="row g-2">
+      <div class="col-md-4">
+        <label class="form-label">Negozio</label>
+        <select name="shop_id" class="form-select" id="shopSelect" required>
+          {% for s in shops %}
+            <option value="{{ s.id }}">{{ s.display_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-8 d-flex align-items-end gap-3 flex-wrap">
+        {% for m in macro_areas %}
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              name="areas[]"
+              id="acc_{{ m.area }}"
+              value="{{ m.area }}"
+              {% if m.area in ['sala','cucina'] %}checked{% endif %}>
+            <label class="form-check-label" for="acc_{{ m.area }}">
+              Accesso {{ m.area|capitalize }}
+            </label>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {# --- Campi per ADMIN (role=admin) --- #}
+  <div id="adminFields" class="mt-3 d-none">
+    <div class="row g-2">
+      <div class="col-md-4">
+        <label class="form-label">Permessi admin</label>
+        <select name="admin_level" id="admin_level" class="form-select">
+          <option value="full" selected>Tutti i permessi</option>
+          <option value="partial">Permessi parziali (no creazioni/eliminazioni)</option>
+        </select>
+      </div>
+      <div class="col-md-8 d-flex align-items-center">
+        <small class="text-muted">
+          Con “permessi parziali” l’admin <strong>non</strong> può creare/eliminare negozi, prodotti, reparti e utenti. Il resto è consentito.
+        </small>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn btn-primary mt-3">Crea utente</button>
+</form>
+
+<div class="card">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h2 class="h6 m-0">Utenti esistenti</h2>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Username</th>
+            <th>Nome</th>
+            <th>Negozio</th>
+            <th>Accessi / Permessi</th>
+            <th class="text-end" style="width:140px">Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          {% set areas_u = user_area_map.get(u.id, []) %}
+          <tr>
+            <td>
+              {% if u.role == 'admin' %}
+                <span class="badge bg-primary">Admin</span>
+              {% else %}
+                <span class="badge bg-secondary">Utente negozio</span>
+              {% endif %}
+            </td>
+            <td>{{ u.username }}</td>
+            <td>{{ u.display_name }}</td>
+            <td>
+              {% if u.role == 'employee' %}
+                {% set shop = shops|selectattr('id','equalto',u.works_for_client_id)|first %}
+                {{ shop.display_name if shop else '—' }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>
+              {% if u.role == 'employee' %}
+                {% if areas_u and areas_u|length > 0 %}
+                  {% for a in areas_u %}
+                    <span class="badge bg-light text-dark me-1">{{ a|capitalize }}</span>
+                  {% endfor %}
+                {% else %}
+                  {# fallback: vecchi flag (compatibilità) #}
+                  {% if u.access_sala %}<span class="badge bg-light text-dark me-1">Sala</span>{% endif %}
+                  {% if u.access_cucina %}<span class="badge bg-light text-dark">Cucina</span>{% endif %}
+                {% endif %}
+              {% else %}
+                {% if (u.admin_level or 'full') == 'partial' %}
+                  <span class="badge bg-warning text-dark">Parziali</span>
+                {% else %}
+                  <span class="badge bg-success">Tutti i permessi</span>
+                {% endif %}
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <!-- Modifica -->
+              <button class="btn btn-outline-primary btn-sm"
+                      data-bs-toggle="modal"
+                      data-bs-target="#editUser{{ u.id }}">
+                <i class="bi bi-pencil-square"></i>
+              </button>
+              <!-- Elimina -->
+              <form method="post"
+                    action="{{ url_for('admin_users_delete', user_id=u.id) }}"
+                    class="d-inline user-delete"
+                    data-confirm="Eliminare l'utente '{{ u.username }}'?">
+                <button class="btn btn-outline-danger btn-sm" type="submit">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+            </td>
+          </tr>
+
+          {# -------- MODALE MODIFICA UTENTE -------- #}
+          <div class="modal fade" id="editUser{{ u.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+              <div class="modal-content">
+                <form method="post" action="{{ url_for('admin_users_update', user_id=u.id) }}">
+                  <div class="modal-header">
+                    <h5 class="modal-title">Modifica utente — {{ u.username }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+                  </div>
+                  <div class="modal-body">
+                    {% if u.role == 'employee' %}
+                      <div class="row g-3">
+                        <div class="col-md-4">
+                          <label class="form-label">Nome visibile</label>
+                          <input name="display_name" class="form-control" value="{{ u.display_name or u.username }}">
+                        </div>
+                        <div class="col-md-4">
+                          <label class="form-label">Password (lascia vuoto per non cambiare)</label>
+                          <input name="password" type="password" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                          <label class="form-label">Negozio</label>
+                          <select name="shop_id" class="form-select" required>
+                            {% for s in shops %}
+                              <option value="{{ s.id }}" {{ 'selected' if s.id == u.works_for_client_id else '' }}>
+                                {{ s.display_name }}
+                              </option>
+                            {% endfor %}
+                          </select>
+                        </div>
+                        <div class="col-12">
+                          <label class="form-label">Accesso macro-aree</label>
+                          <div class="d-flex flex-wrap gap-3">
+                            {% for m in macro_areas %}
+                              {% set checked = (m.area in areas_u) or (not areas_u and m.area in ['sala','cucina'] and (u.access_sala if m.area=='sala' else u.access_cucina if m.area=='cucina' else false)) %}
+                              <div class="form-check">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       name="areas[]"
+                                       id="edit_{{ u.id }}_{{ m.area }}"
+                                       value="{{ m.area }}"
+                                       {% if checked %}checked{% endif %}>
+                                <label class="form-check-label" for="edit_{{ u.id }}_{{ m.area }}">
+                                  {{ m.area|capitalize }}
+                                </label>
+                              </div>
+                            {% endfor %}
+                          </div>
+                          {# Compatibilità vecchi flag (non danno fastidio se backend ignora) #}
+                          <input type="hidden" name="access_sala" value="{{ 1 if 'sala' in areas_u or u.access_sala else 0 }}">
+                          <input type="hidden" name="access_cucina" value="{{ 1 if 'cucina' in areas_u or u.access_cucina else 0 }}">
+                        </div>
+                      </div>
+                    {% else %}
+                      <div class="row g-3">
+                        <div class="col-md-4">
+                          <label class="form-label">Nome visibile</label>
+                          <input name="display_name" class="form-control" value="{{ u.display_name or u.username }}">
+                        </div>
+                        <div class="col-md-4">
+                          <label class="form-label">Password (lascia vuoto per non cambiare)</label>
+                          <input name="password" type="password" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                          <label class="form-label">Permessi admin</label>
+                          <select name="admin_level" class="form-select">
+                            <option value="full" {{ 'selected' if (u.admin_level or 'full')=='full' else '' }}>Tutti i permessi</option>
+                            <option value="partial" {{ 'selected' if (u.admin_level or 'full')=='partial' else '' }}>Permessi parziali</option>
+                          </select>
+                        </div>
+                      </div>
+                    {% endif %}
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">Salva</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+          {# ------ /MODALE MODIFICA UTENTE ------ #}
+
+          {% else %}
+          <tr><td colspan="6" class="text-muted">Nessun utente.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<hr class="my-4">
+
+{# ====================== SEZIONE MACRO-AREE ====================== #}
+<div class="d-flex align-items-center justify-content-between mb-2">
+  <h2 class="h6 m-0">Macro-aree</h2>
+  <small class="text-muted">Raggruppano i reparti (niente codice richiesto).</small>
+</div>
+
+<div class="row g-3">
+  <!-- Elenco macro-aree esistenti -->
+  <div class="col-12 col-lg-7">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        {% if macro_areas and macro_areas|length > 0 %}
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead>
+                <tr>
+                  <th>Nome (chiave)</th>
+                  <th class="text-end" style="width:120px"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for a in macro_areas %}
+                  <tr>
+                    <td class="fw-semibold">{{ a.area }}</td>
+                    <td class="text-end">
+                      <form method="post"
+                            action="{{ url_for('admin_macro_area_delete', area_id=a.id) }}"
+                            class="macro-delete"
+                            data-confirm="Eliminare la macro-area '{{ a.area }}'? Sarà possibile solo se non usata da alcun reparto.">
+                        <button class="btn btn-outline-danger btn-sm" type="submit" title="Elimina">
+                          <i class="bi bi-trash"></i>
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="text-muted">Nessuna macro-area. Aggiungine una qui a fianco.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Crea nuova macro-area -->
+  <div class="col-12 col-lg-5">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="fw-semibold mb-2">Crea nuova macro-area</div>
+        <form method="post" action="{{ url_for('admin_macro_area_create') }}" class="row g-2">
+          <div class="col-12">
+            <label class="form-label mb-1">Nome (chiave tecnica)</label>
+            <input type="text" name="name" class="form-control" placeholder="es. ortofrutta" required>
+            <div class="form-text">minuscolo; lettere/numeri/spazi/trattini/underscore</div>
+          </div>
+          <div class="col-12 d-flex justify-content-end">
+            <button class="btn btn-primary" type="submit">
+              <i class="bi bi-plus-lg me-1"></i>Aggiungi macro-area
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{# ==================== /SEZIONE MACRO-AREE ======================= #}
+
+<script>
+  // Conferme tasti "Elimina utente" e "Elimina macro-area"
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('form.user-delete, form.macro-delete').forEach(function (f) {
+      f.addEventListener('submit', function (e) {
+        var msg = this.getAttribute('data-confirm') || 'Confermi?';
+        if (!confirm(msg)) e.preventDefault();
+      });
+    });
+  });
+
+  // Switch creazione admin/employee
+  const roleEl = document.getElementById('role');
+  const employeeFields = document.getElementById('employeeFields');
+  const adminFields = document.getElementById('adminFields');
+  const shopSelect = document.getElementById('shopSelect');
+
+  function syncForm() {
+    const isAdmin = roleEl.value === 'admin';
+    adminFields.classList.toggle('d-none', !isAdmin);
+    employeeFields.classList.toggle('d-none', isAdmin);
+    if (shopSelect) {
+      if (isAdmin) shopSelect.removeAttribute('required');
+      else shopSelect.setAttribute('required', 'required');
+    }
+  }
+  roleEl.addEventListener('change', syncForm);
+  syncForm();
+</script>
+{% endblock %}

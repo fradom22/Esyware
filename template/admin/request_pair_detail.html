@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h4 mb-3">Giacenza – {{ client.display_name }}</h1>
+
+<div class="card shadow-sm mx-auto" style="max-width: 980px;">
+  <div class="card-body">
+
+    <div class="text-center mb-3">
+      <div class="d-inline-flex align-items-center gap-2">
+        {% set complete = (sala is not none) and (cucina is not none) %}
+        {% if complete %}
+          <span class="badge bg-success pill-lg">Ricevuta</span>
+        {% else %}
+          <span class="badge bg-warning text-dark pill-lg">Incompleta</span>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if sala %}
+      <div class="mb-3 text-center">
+        <span class="badge bg-light text-dark pill-lg">SALA</span>
+        <div class="small text-muted mt-1">{{ sala.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+      </div>
+
+      <div class="table-responsive mb-4">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Reparto</th>
+              <th>Prodotto</th>
+              <th class="text-end">Q.tà</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for dep_name, items in sala_groups %}
+              {% for it in items %}
+              <tr>
+                {% if loop.first %}
+                  <td rowspan="{{ items|length }}" class="fw-semibold align-top">{{ dep_name }}</td>
+                {% endif %}
+                <td>{{ it.product.name if it.product else '—' }}</td>
+                <td class="text-end">{{ it.qty_requested }}</td>
+                <td class="text-muted">{{ it.note or '' }}</td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="4" class="text-muted">Nessun prodotto.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="alert alert-warning text-center">Nessuna giacenza SALA.</div>
+    {% endif %}
+
+    {% if cucina %}
+      <div class="mb-3 text-center">
+        <span class="badge bg-light text-dark pill-lg">CUCINA</span>
+        <div class="small text-muted mt-1">{{ cucina.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Reparto</th>
+              <th>Prodotto</th>
+              <th class="text-end">Q.tà</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for dep_name, items in cucina_groups %}
+              {% for it in items %}
+              <tr>
+                {% if loop.first %}
+                  <td rowspan="{{ items|length }}" class="fw-semibold align-top">{{ dep_name }}</td>
+                {% endif %}
+                <td>{{ it.product.name if it.product else '—' }}</td>
+                <td class="text-end">{{ it.qty_requested }}</td>
+                <td class="text-muted">{{ it.note or '' }}</td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="4" class="text-muted">Nessun prodotto.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="alert alert-warning text-center">Nessuna giacenza CUCINA.</div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}
