@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card shadow-sm my-4">
+  <div class="card-body">
+    <h1 class="h5 mb-3">Licenza scaduta</h1>
+    <p>La licenza dell’applicazione risulta scaduta{% if ls.grace_days and ls.grace_days>0 %} (dopo {{ ls.grace_days }} giorni di grazia){% endif %}.
+    {% if ls.expires %} Data scadenza: <strong>{{ ls.expires.strftime('%d/%m/%Y') }}</strong>.{% endif %}</p>
+
+    <p>Contatta l’amministratore per rinnovare la licenza e ripristinare le funzionalità.</p>
+
+    <div class="mt-3">
+      <a class="btn btn-primary" href="{{ url_for('logout') }}">Esci</a>
+      <a class="btn btn-outline-secondary" href="{{ url_for('login') }}">Accedi</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

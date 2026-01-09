@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="MyWebSite" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title or "Magazzino" }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='styles.css') }}" rel="stylesheet">
+  </head>
+
+
+  {% if license_overlimit %}
+  <div class="alert alert-danger text-center" style="font-size:1.1rem;">
+    {{ license_message }}
+  </div>
+  {% endif %}
+
+  <script>
+    // Converte tutti gli elementi con data-utc="ISO8601" in ora Europe/Rome
+    document.addEventListener('DOMContentLoaded', () => {
+      const fmt = new Intl.DateTimeFormat('it-IT', {
+        timeZone: 'Europe/Rome',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit'
+      });
+      document.querySelectorAll('[data-utc]').forEach(el => {
+        let s = el.getAttribute('data-utc') || '';
+        // garantisci che sia interpretata come UTC
+        if (!s.endsWith('Z')) s += 'Z';
+        const d = new Date(s);
+        el.textContent = fmt.format(d);
+      });
+    });
+  </script>
+
+  <body class="bg-app">
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-theme sticky-top">
+    <div class="container-fluid nav-grid">
+      <!-- Colonna sinistra: logo -->
+      <a class="navbar-brand" href="{{ url_for('index') }}">
+        <img src="{{ url_for('static', filename='img/logo.png') }}"
+             alt="esyware" class="brand-logo"
+             style="height:60px; width:auto; display:block;">
+        <span class="visually-hidden">esyware</span>
+      </a>
+
+      <!-- Colonna destra (su mobile: pulsante) -->
+      <button class="navbar-toggler ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu"
+              aria-controls="navMenu" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <!-- Colonna centrale: menu (centrato su desktop, a tutta larghezza su mobile) -->
+      <div class="collapse navbar-collapse justify-content-center" id="navMenu">
+        {% if current_user.is_authenticated and current_user.role == 'admin' %}
+          {# rileva il livello direttamente dall'utente loggato #}
+          {% set admin_level = (current_user.admin_level or 'full')|lower %}
+          {% set is_admin_full = admin_level == 'full' %}
+
+          <ul class="navbar-nav gap-1">
+
+            <li class="nav-item">
+              <a class="nav-link {% if request.endpoint == 'admin_dashboard' %}active{% endif %}"
+                href="{{ url_for('admin_dashboard') }}">
+                <i class="bi bi-house-door me-1"></i>Home
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link {% if request.endpoint == 'admin_grid' %}active{% endif %}"
+                href="{{ url_for('admin_grid') }}">
+                <i class="bi bi-grid-1x2 me-1"></i>Griglia
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link {% if request.endpoint == 'admin_stock_totals' %}active{% endif %}"
+                href="{{ url_for('admin_stock_totals') }}">
+                <i class="bi bi-graph-up-arrow me-1"></i>Giacenze totali
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link {% if request.endpoint == 'admin_requests' %}active{% endif %}" 
+                href="{{ url_for('admin_requests') }}">
+                <i class="bi bi-inboxes me-1"></i>Giacenze ricevute
+              </a>
+            </li>
+
+            {# ——— VISIBILI SOLO A ADMIN FULL ——— #}
+            {% if is_admin_full %}
+              <li class="nav-item">
+                <a class="nav-link  {% if request.endpoint == 'admin_clients' %}active{% endif %}"
+                  href="{{ url_for('admin_clients') }}">
+                  <i class="bi bi-people me-1"></i>Negozi
+                </a>
+              </li>
+
+              <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'admin_products' %}active{% endif %}"
+                  href="{{ url_for('admin_products') }}">
+                  <i class="bi bi-basket me-1"></i>Prodotti
+                </a>
+              </li>
+
+              <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'admin_departments' %}active{% endif %}"
+                  href="{{ url_for('admin_departments') }}">
+                  <i class="bi bi-grid-3x3-gap me-1"></i>Anagrafica
+                </a>
+              </li>
+            {% endif %}
+          </ul>
+        {% endif %}
+
+        <!-- Sezione utente dentro il collapse (solo mobile) -->
+        <div class="d-lg-none mt-2">
+          {% if current_user.is_authenticated %}
+            <hr class="my-2">
+            <div class="d-flex align-items-center justify-content-between">
+              <span class="nav-text-muted">Ciao, <strong>{{ current_user.display_name }}</strong></span>
+              <a href="{{ url_for('logout') }}" id="nav-logout" class="dropdown-item">
+                <i class="bi bi-box-arrow-right me-1"></i>Logout
+              </a>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Colonna destra: azioni utente (solo desktop) -->
+      <div class="d-none d-lg-flex align-items-center nav-right">
+        {% if current_user.is_authenticated %}
+          <span class="nav-text-muted me-2">Ciao, <strong>{{ current_user.display_name }}</strong></span>
+          <a class="btn btn-outline-dark btn-sm" href="{{ url_for('logout') }}">Logout</a>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+
+  
+  <!-- Page container -->
+  <main class="container-xxl container-wide py-4">
+    {# Flash messages: dismissible + auto-dismiss #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="toast-stack">
+          {% for category, message in messages %}
+            <div class="alert alert-{{ 'warning' if category=='message' else category }} alert-dismissible fade show auto-dismiss shadow-sm rounded-4" role="alert">
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+  
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Auto-dismiss dei flash dopo 3 secondi -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.alert.auto-dismiss').forEach(el => {
+        setTimeout(() => {
+          try {
+            const inst = bootstrap.Alert.getOrCreateInstance(el);
+            inst.close();
+          } catch (e) {
+            el.classList.remove('show');
+            setTimeout(() => el.remove(), 150);
+          }
+        }, 3000);
+      });
+    });
+  </script>
+  
+
+{% if license_show_notice and not license_expired %}
+<div class="modal fade" id="licenseNoticeModal" tabindex="-1" aria-labelledby="licenseNoticeLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px;">
+      <div class="modal-header">
+        <h5 class="modal-title" id="licenseNoticeLabel">Licenza in scadenza</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+      </div>
+      <div class="modal-body">
+        {% if license_expires %}
+          La licenza scade il <strong>{{ license_expires.strftime('%d/%m/%Y') }}</strong>.
+        {% else %}
+          La licenza è in scadenza a breve.
+        {% endif %}
+        Contatta l’amministratore per il rinnovo.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Mostra il modal una sola volta per sessione
+  (function(){
+    try{
+      const key = "license_notice_shown";
+      if (!sessionStorage.getItem(key)) {
+        const el = document.getElementById('licenseNoticeModal');
+        if (el && typeof bootstrap !== "undefined") {
+          const modal = new bootstrap.Modal(el);
+          modal.show();
+          sessionStorage.setItem(key, "1");
+        }
+      }
+    }catch(e){}
+  })();
+</script>
+{% endif %}
+
+
+  </body>
+</html>

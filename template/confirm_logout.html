@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container my-4">
+  <div class="card shadow-sm mx-auto" style="max-width: 640px;">
+    <div class="card-body">
+      <h1 class="h5 mb-2">Uscire dal profilo?</h1>
+      <p class="text-muted mb-3">
+        Hai una giacenza in bozza con <strong>{{ pending_rows }}</strong> righe non inviate.
+        Se esci adesso potresti perdere le modifiche.
+      </p>
+
+      <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-primary" href="{{ url_for('client_departments') }}">
+          <i class="bi bi-pencil-square me-1"></i> Torna a compilare
+        </a>
+
+        <a class="btn btn-outline-danger" href="{{ url_for('logout', confirm=1) }}">
+          <i class="bi bi-box-arrow-right me-1"></i> Esci comunque
+        </a>
+      </div>
+
+      <hr class="my-3">
+      <small class="text-muted d-block">
+        Suggerimento: per non perdere i dati, vai su <em>Riepilogo &amp; Invia</em> prima di uscire.
+      </small>
+    </div>
+  </div>
+</div>
+{% endblock %}
