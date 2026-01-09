@@ -1,0 +1,514 @@
+/* ——— Theme ——— */
+:root{
+  --bg: #f5f6f7;
+  --card: #ffffff;
+  --ink: #0a0a0a;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --brand: #00bbff;            /* blu principale */
+  --brand-ink: #0099d6;        /* blu scuro per gradient/hover */
+  --focus: rgba(0,187,255,.25);/* focus ring coerente */
+
+  /* Altezza navbar (per sticky header) */
+  --nav-h: 64px;
+}
+@media (max-width: 991px){
+  :root { --nav-h: 56px; }
+}
+
+*{ box-sizing: border-box; }
+html,body{ height:100%; }
+body{
+  color:var(--ink);
+  font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, ui-sans-serif, system-ui;
+}
+
+/* background soffice */
+.bg-app{
+  background:
+    radial-gradient(1200px 600px at 20% -50%, #ffffff 0%, rgba(255,255,255,0) 70%),
+    radial-gradient(900px 500px at 110% -20%, #e6f0ff 0%, rgba(230,240,255,0) 60%),
+    var(--bg);
+}
+
+/* ===== Navbar azzurra (sticky) ===== */
+.navbar-theme{
+  --bs-navbar-padding-y: .6rem;
+  background: #00bbff !important;
+  border-bottom: none;
+  box-shadow: 0 2px 12px rgba(0,0,0,.08);
+
+  /* sticky sopra tutto */
+  position: sticky;
+  top: 0;
+  z-index: 1100;
+}
+
+/* Assicura che i modali stiano SEMPRE sopra la navbar */
+.navbar-theme.sticky-top {
+  z-index: 1020; /* < 1050(backdrop) e 1055(modal) di Bootstrap */
+}
+/* Testi e link in bianco */
+.navbar-theme .navbar-brand,
+.navbar-theme .nav-link,
+.navbar-theme .nav-text-muted{
+  color: #fff !important;
+}
+/* Hover/active */
+.navbar-theme .nav-link:hover,
+.navbar-theme .nav-link:focus{
+  color: #fff !important;
+  background: rgba(255,255,255,.12);
+  border-radius: 10px;
+}
+.navbar-theme .nav-link.active{
+  color: #fff !important;
+  background: rgba(255,255,255,.22);
+  border-radius: 10px;
+}
+/* Toggler (hamburger) bianco su mobile */
+.navbar-theme .navbar-toggler{
+  border-color: rgba(255,255,255,.6);
+}
+.navbar-theme .navbar-toggler-icon{
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255,255,255,1)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+/* Bottone Logout: contorno bianco */
+.navbar-theme .btn-outline-dark{
+  color: #fff;
+  border-color: rgba(255,255,255,.9);
+}
+.navbar-theme .btn-outline-dark:hover{
+  color: #00bbff;
+  background: #fff;
+  border-color: #fff;
+}
+/* Icone in navbar leggermente opache */
+.navbar-theme .bi{ color: rgba(255,255,255,.95); }
+
+/* card & shadows in stile soft */
+.card{ border: 1px solid var(--border); background: var(--card); border-radius: 18px; }
+.card.shadow-sm{ box-shadow: 0 6px 20px rgba(0,0,0,.06); }
+
+/* bottoni “call to action” */
+.btn{ border-radius: 12px; }
+.btn-primary{
+  background: linear-gradient(180deg, var(--brand) 0%, var(--brand-ink) 100%);
+  border: none;
+}
+.btn-primary:hover{ filter: brightness(1.03); }
+.btn-outline-primary{ border-color: var(--brand); color: var(--brand-ink); }
+.btn-outline-primary:hover{
+  background: rgba(0,187,255,.12);
+  border-color: var(--brand-ink);
+  color: var(--brand-ink);
+}
+.btn-success{ border:none; border-radius: 12px; }
+.btn-outline-secondary{ border-radius: 12px; }
+
+/* inputs */
+.form-control, .form-select{
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+.form-control:focus, .form-select:focus{
+  border-color: var(--brand);
+  box-shadow: 0 0 0 .25rem var(--focus);
+}
+
+/* list-group modern */
+.list-group-item{
+  border: 1px solid var(--border) !important;
+  margin-bottom: .6rem;
+  border-radius: 14px !important;
+}
+.list-group-item:hover{ background: #fafafa; }
+
+/* tabelle */
+.table{
+  --bs-table-bg: transparent;
+  --bs-table-striped-bg: rgba(0,0,0,.02);
+  border-color: var(--border);
+}
+.table thead th{
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.table td, .table th{ vertical-align: middle; }
+
+/* piccoli badge */
+.badge{ border-radius: 999px; padding:.5em .7em; }
+
+/* toast/flash stack */
+.toast-stack > .alert{ border-radius: 16px; border:1px solid var(--border); }
+
+/* utility */
+.section-title{ font-weight: 700; letter-spacing: .2px; }
+.subtle{ color: var(--muted); }
+
+/* Hero contenitore (base) */
+.hero{
+  background: linear-gradient(180deg, rgba(255,255,255,.9), rgba(255,255,255,.7));
+  border:1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px 18px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.05);
+}
+.hero.hero-split { margin-bottom: 26px; }
+
+/* === HERO con logo a sinistra e pulsanti a destra (GRID) === */
+.hero.hero-split{
+  display:grid;
+  grid-template-columns: 1fr auto;
+  align-items:center;
+  gap:16px;
+  min-height:140px;
+}
+.hero-left{
+  display:flex;
+  align-items:stretch;
+  gap:18px;
+  min-height:140px;
+}
+
+/* wrapper logo senza bordi */
+.hero-logo-wrap{
+  border: none !important;
+  background: transparent;
+  box-shadow: none;
+}
+/* logo responsive */
+.hero-logo-wrap img{
+  display:block;
+  max-width: 300px;
+  width: 100%;
+  height: auto;
+}
+@media (max-width: 991px){
+  .hero-logo-wrap img{ max-width: 290px; }
+}
+@media (max-width: 576px){
+  .hero-logo-wrap img{ max-width: 290px; }
+}
+
+.hero-text{ display:flex; flex-direction:column; justify-content:center; }
+
+/* colonna destra: 2 tile affiancati + bottone sotto a tutta larghezza */
+.hero-right{
+  display:grid;
+  grid-template-rows:auto auto;
+  gap:14px;
+  width:min(640px, 100%);
+}
+.mini-actions{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap:12px;
+}
+/* dimensioni GRANDI solo dentro l'hero */
+.hero-right .action-tile{
+  padding:22px 24px;
+  min-height:104px;
+  border-radius:18px;
+}
+.hero-right .action-tile i{ font-size:1.6rem; }
+.hero-right .action-tile .fw-semibold{ font-size:1.1rem; }
+.hero-right .action-tile .subtle.small{ font-size:.92rem; }
+
+/* evita overflow testi tile su schermi stretti */
+.hero-right .action-tile div{ min-width: 0; }
+.hero-right .action-tile .subtle.small{
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* bottone blu "Griglia" — stessa altezza dei tile */
+.btn-grid-solid{
+  display:flex; align-items:center; justify-content:center;
+  gap:10px;
+  padding:22px 24px;
+  min-height:104px;
+  font-size:1.1rem;
+  border-radius:18px;
+  background: linear-gradient(180deg, var(--brand) 0%, var(--brand-ink) 100%);
+  border:none; color:#fff;
+  box-shadow:0 6px 18px rgba(0,0,0,.12);
+  text-decoration:none;
+}
+.btn-grid-solid:hover{ filter:brightness(1.03); }
+
+/* responsive: sotto i 992px tutto in colonna */
+@media (max-width: 991px){
+  .hero.hero-split{ grid-template-columns:1fr; gap:12px; }
+  .hero-left{ min-height:110px; }
+  .hero-right{ width:100%; }
+  .mini-actions{ grid-template-columns:1fr; }
+  .btn-grid-solid{ width: 100%; }
+}
+
+/* Tile arancioni (stile KPI) */
+.action-tile{
+  display:flex; align-items:center; gap:12px;
+  padding:14px 16px; border:1px solid var(--border);
+  border-radius: 16px; background:#fff;
+  text-decoration:none; color:inherit;
+  transition: filter .12s ease, transform .12s ease, border-color .12s ease;
+}
+.action-tile:hover{ background:#f8f9fb; border-color:#dbe3f5; transform: translateY(-1px); }
+.action-tile i{ font-size: 1.3rem; color: var(--brand-ink); }
+
+.action-tile--orange{
+  background: linear-gradient(180deg, #ffb763 0%, #ff8c00 100%) !important;
+  color: #fff !important;
+  border: none !important;
+  box-shadow: 0 6px 18px rgba(255,140,0,.25);
+}
+.action-tile--orange i{ color: #fff !important; }
+.action-tile--orange .subtle{ color: rgba(255,255,255,.95) !important; }
+.action-tile--orange:hover{ filter: brightness(1.03); }
+
+/* big actions grid (compat) */
+.actions-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px,1fr));
+  gap: 10px;
+}
+
+/* date filter group */
+.filter-bar{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+.date-input{ max-width: 190px; }
+.form-label-inline{
+  display: inline-flex;
+  align-items: center;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Utility: sticky subito sotto la navbar */
+.sticky-under-nav{
+  position: sticky;
+  top: var(--nav-h);
+  z-index: 1020;
+  background: #fff;
+}
+
+/* Contenitore più ampio (max 1600px) */
+.container-wide { max-width: 1600px; }
+
+/* ====== GRIGLIA ====== */
+.grid-shell{
+  border:1px solid var(--border);
+  border-radius:16px;
+  background:#fff;
+  overflow:hidden;
+}
+
+/* nascondi scrollbar orizzontale ma mantieni lo scroll */
+.grid-scroll{
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE/Edge legacy */
+  position:relative;
+  cursor:grab;
+}
+.grid-scroll::-webkit-scrollbar{
+  height: 0;
+  width: 0;
+  display: none;
+}
+.grid-scroll.dragging{ cursor:grabbing; }
+
+.table-grid{
+  table-layout:fixed;
+  border-collapse:separate;
+  border-spacing:0;
+  white-space:nowrap;
+}
+.grid-thead{
+  position:sticky; top:0; z-index:5;
+  background:#fff; border-bottom:1px solid var(--border);
+}
+.grid-thead th{
+  padding-top:.75rem; padding-bottom:.75rem;
+  font-weight:600; color:var(--muted);
+}
+.grid-thead tr:first-child th{ border-bottom:1px solid var(--border); }
+
+.table-grid .sticky-col{
+  position:sticky; left:0; z-index:6;
+  background:#fff; border-right:1px solid var(--border);
+  min-width:240px;
+}
+
+/* Linea verticale continua all'inizio di ogni negozio (gruppo) */
+.sep-left{ position: relative; }
+.sep-left::after{
+  content:"";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: #e6edf9;
+  pointer-events: none;
+}
+
+.grid-row:nth-child(even){ background:rgba(0,0,0,.015); }
+
+/* badge “Giacenza” */
+.metric{
+  display:inline-block; min-width:2.2em; padding:.22rem .6rem; border-radius:999px;
+  background:#ff8c00; color:#fff; font-weight:600; font-variant-numeric:tabular-nums;
+}
+.metric-zero{
+  display:inline-block; min-width:2.2em; color:var(--muted);
+  font-variant-numeric:tabular-nums;
+}
+
+/* input quantità */
+.grid-input{
+  width:6.5ch; max-width:90px; padding:.25rem .4rem;
+  border-radius:12px; border:1px solid var(--border);
+  background: linear-gradient(180deg,#fff,#fafafa);
+  font-variant-numeric:tabular-nums;
+}
+.grid-input:focus{ border-color:var(--brand); box-shadow:0 0 0 .25rem var(--focus); }
+.input-in{ background: linear-gradient(180deg,#ffffff,#f5f9ff); }
+
+.product-cell .prod-name{
+  display:inline-block; max-width:220px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+
+/* Piccolo badge grigio (pair #N) / submitter */
+.k-badge{
+  padding: .25rem .55rem;
+  border-radius: 999px;
+  font-size: .75rem;
+  background: #f1f3f5;
+  color: #111827;
+  border: 1px solid var(--border);
+}
+
+/* Badge “Ricevuta” */
+.flag-received{
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .45rem .8rem;
+  border-radius: 999px;
+  background: #e9f7ef;
+  color: #1e7e34;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(30,126,52,.15);
+}
+/* Badge “Incompleta” (ambra) */
+.flag-partial{
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .45rem .8rem;
+  border-radius: 999px;
+  background: #fff4e5;
+  color: #8a5300;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(138,83,0,.15);
+}
+
+/* chip intestazione gruppi nei recap */
+.group-chip{
+  display:inline-block; padding:.35rem .7rem; border-radius:999px;
+  background:#f7f8fa; border:1px solid var(--border);
+  box-shadow: 0 4px 14px rgba(0,0,0,.06) inset, 0 6px 16px rgba(0,0,0,.04);
+  font-weight:700;
+}
+.table .group-subhead th{
+  font-weight:600; color:var(--muted);
+  border-top:1px solid var(--border); background:transparent;
+}
+
+/* Pill nome negozio di default */
+.client-head{
+  display:inline-block;
+  padding:.30rem .60rem;
+  border-radius:12px;
+  background:#f7f8fa;
+  border:1px solid var(--border);
+  font-weight:700;
+  white-space:nowrap;
+}
+/* Variante “verde finché non arriva una nuova giacenza” */
+.client-head--green{
+  background:#e6f7ec;
+  border-color:#34c759;
+  color:#146c2e;
+  box-shadow: inset 0 0 0 1px rgba(52,199,89,.12);
+}
+
+/* badge più "spessi" */
+.pill-lg{
+  padding: .6rem 1rem;
+  font-weight: 700;
+  letter-spacing: .2px;
+  border-radius: 999px;
+}
+
+/* card centrata per le giacenze */
+.receipt-card .card-body{
+  padding-top: 18px;
+  padding-bottom: 18px;
+}
+
+/* colonna “dettaglio per negozio” più ariosa */
+.col-details{ padding-left:32px !important; border-left:none !important; }
+@media (min-width:1200px){ .col-details{ padding-left:75px !important; } }
+
+/* Quantità centrata + colonna di “aria” a destra */
+.table-center-qty th.col-qty,
+.table-center-qty td.col-qty{
+  text-align: center;
+  width: 120px;
+}
+.table-center-qty th.col-spacer,
+.table-center-qty td.col-spacer{
+  width: 22%;
+}
+@media (max-width: 768px){
+  .table-center-qty th.col-qty,
+  .table-center-qty td.col-qty{ width: auto; }
+}
+
+/* Riga “testata reparto” soft */
+.table-subtle-row > td{
+  background: #f5f7fb;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+
+/* Card apple */
+.card-apple{
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: linear-gradient(180deg, var(--card), #fafafa);
+  box-shadow: 0 6px 18px rgba(0,0,0,.06);
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+.card-apple:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0,0,0,.08);
+  border-color: rgba(0,0,0,.1);
+}
+
+/* Badge stato giacenza (verde/giallo) */
+.status-badge{ font-weight:600; }
+.status-complete{ background:#22c55e; color:#fff; }
+.status-partial{ background:#fbbf24; color:#111; }
