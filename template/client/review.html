@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h4 mb-3">Riepilogo giacenza</h1>
+
+{% if items|length == 0 %}
+  <div class="alert alert-warning">Nessuna quantità inserita. Torna ai reparti per aggiungere prodotti.</div>
+  <a href="{{ url_for('client_departments') }}" class="btn btn-outline-secondary">Vai ai reparti</a>
+{% else %}
+
+<div class="row g-3">
+  {# grouped_macro è un dict: area -> [ {department, rows:[RequestItem,...]} ] #}
+  {% for area, blocks in grouped_macro.items() %}
+    {% if blocks|length > 0 %}
+    <div class="col-12 mb-3">
+      <div class="card card-apple h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="fs-5 fw-bold">{{ area|replace('_',' ')|title }}</div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-sm align-middle table-fixed m-0">
+              <colgroup>
+                <col>
+                <col style="width:110px">
+                <col>
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Prodotto</th>
+                  <th class="text-center">Q.tà</th>
+                  <th>Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for blk in blocks %}
+                  <tr>
+                    <td colspan="3" class="pt-2">
+                      <div class="group-chip">{{ blk.department or 'Senza reparto' }}</div>
+                    </td>
+                  </tr>
+                  {% for it in blk.rows %}
+                    <tr>
+                      <td>{{ it.product.name }}</td>
+                      <td class="text-center fw-semibold" style="font-variant-numeric: tabular-nums;">
+                        {{ it.qty_requested|fmt_qty }}
+                      </td>
+                      <td class="text-muted">{{ it.note or '' }}</td>
+                    </tr>
+                  {% endfor %}
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  {% endfor %}
+</div>
+
+{# CTA invio / modifica #}
+<div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mt-3">
+  <a href="{{ url_for('client_departments') }}" class="btn btn-outline-secondary">
+    <i class="bi bi-pencil-square me-1"></i>Modifica
+  </a>
+  <form method="post" class="ms-auto">
+    <button class="btn btn-primary">
+      <i class="bi bi-send-fill me-1"></i>Invia giacenza
+    </button>
+  </form>
+</div>
+
+{% endif %}
+
+<style>
+  .table-fixed{ table-layout: fixed; }
+  .group-chip{
+    display:inline-block;
+    padding:.35rem .7rem;
+    border-radius:999px;
+    background:#f7f8fa;
+    border:1px solid var(--border);
+    box-shadow: 0 4px 14px rgba(0,0,0,.06) inset, 0 6px 16px rgba(0,0,0,.04);
+    font-weight:700;
+  }
+</style>
+{% endblock %}

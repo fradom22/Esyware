@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h4 mb-3">Cerca prodotti</h1>
+
+<form method="get" class="row g-2 mb-3">
+  <div class="col-md-8">
+    <input type="text" class="form-control" name="q" placeholder="Cerca prodotto in tutti i reparti…" value="{{ q or '' }}">
+  </div>
+  <div class="col-md-4">
+    <button class="btn btn-primary" type="submit">Cerca</button>
+    <a href="{{ url_for('client_search') }}" class="btn btn-outline-secondary">Azzera</a>
+  </div>
+</form>
+
+{% if not q %}
+  <div class="alert alert-info">Inserisci almeno {{ min_len }} caratteri per cercare.</div>
+{% elif products|length == 0 %}
+  <div class="alert alert-warning">Nessun prodotto trovato per "<strong>{{ q }}</strong>".</div>
+{% else %}
+  <form method="post">
+    <input type="hidden" name="q" value="{{ q }}">
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>Reparto</th>
+            <th>Prodotto</th>
+            <th style="width: 140px;">Quantità</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in products %}
+          {% set it = qty_map.get(p.id) %}
+          <tr>
+            <td class="text-muted">{{ p.department.name }}</td>
+            <td>{{ p.name }}</td>
+            <td><input type="number" min="0" class="form-control form-control-sm" name="qty_{{ p.id }}" value="{{ it.qty_requested if it else 0 }}"></td>
+            <td><input type="text" class="form-control form-control-sm" name="note_{{ p.id }}" value="{{ it.note if it else '' }}"></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('client_departments') }}" class="btn btn-outline-secondary">Indietro</a>
+      <button class="btn btn-primary" type="submit">Salva</button>
+      <a href="{{ url_for('client_review') }}" class="btn btn-success">Riepilogo giacenza &amp; Invia</a>
+    </div>
+  </form>
+{% endif %}
+{% endblock %}

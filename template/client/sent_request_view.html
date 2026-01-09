@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h1 class="h5 m-0">
+    Riepilogo — {{ rh.created_at | local_dt('%d/%m/%Y %H:%M') }}
+  </h1>
+
+  <div class="d-flex gap-2 align-items-center">
+    {% if can_edit %}
+    
+      <a href="{{ url_for('client_sent_edit', req_id=rh.id) }}" class="btn btn-primary">
+        Modifica
+      </a>
+    {% endif %}
+    <a href="{{ url_for('client_departments') }}" class="btn btn-outline-secondary">
+      ← Torna ai reparti
+    </a>
+  </div>
+</div>
+
+{% if areas_blocks %}
+  {% for area, blocks in areas_blocks.items() %}
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <h2 class="h6 m-0">{{ area|replace('_',' ')|title }}</h2>
+          <span class="badge area-badge">{{ area|replace('_',' ')|title }}</span>
+        </div>
+
+        {% if blocks|length == 0 %}
+          <div class="text-muted">Nessun prodotto in questa area.</div>
+        {% else %}
+          {% for blk in blocks %}
+            <div class="mb-3">
+              <div class="fw-semibold mb-1">{{ blk.department }}</div>
+
+              <div class="table-responsive">
+                <table class="table table-sm align-middle table-center-qty">
+                  <colgroup>
+                    <col class="col-prod">   {# Prodotto (auto) #}
+                    <col class="col-qty">    {# Q.tà (fissa) #}
+                    <col class="col-note">   {# Note (auto) #}
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th class="col-prod">Prodotto</th>
+                      <th class="col-qty text-end">Q.tà</th>
+                      <th class="col-note text-muted">Note</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for it in blk.rows %}
+                      <tr>
+                        <td class="col-prod prod-name">{{ it.product.name }}</td>
+                        <td class="col-qty text-end">
+                          <span class="qty">{{ it.qty_requested | fmt_qty }}</span>
+                        </td>
+                        <td class="col-note text-muted">
+                          {% if it.note %}{{ it.note }}{% endif %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="alert alert-info">Nessun dato disponibile per questo riepilogo.</div>
+{% endif %}
+
+<style>
+/* Badge area: palette del tema */
+.area-badge{
+  background: rgba(0,187,255,.10);
+  color: var(--brand-ink);
+  border: 1px solid var(--brand);
+  font-weight: 700;
+}
+
+/* Tabella con colonna quantità fissa e allineata */
+.table-center-qty{
+  table-layout: fixed;   /* rispetta le larghezze del colgroup */
+  width: 100%;
+}
+
+/* Larghezze (il fixed reale lo dà il colgroup) */
+.table-center-qty col.col-qty  { width: 120px; }
+.table-center-qty col.col-prod { width: auto; }
+.table-center-qty col.col-note { width: auto; }
+
+@media (max-width: 768px){
+  .table-center-qty col.col-qty { width: 96px; }
+}
+
+/* Allineamento quantità e numeri tabulari */
+.table-center-qty th.col-qty,
+.table-center-qty td.col-qty{
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+}
+
+/* Rifiniture coerenti con il tema */
+.table thead th{
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.card{ border: 1px solid var(--border); }
+
+/* Gestione testi lunghi */
+.prod-name{ white-space: normal; word-break: break-word; }
+.col-note { white-space: normal; word-break: break-word; }
+</style>
+
+{% endblock %}

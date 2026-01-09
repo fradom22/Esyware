@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h1 class="h5 m-0">
+    Modifica giacenza — {{ rh.created_at | local_dt('%d/%m/%Y %H:%M') }}
+  </h1>
+  <div class="text-muted small">
+    Modificabile fino alle {{ edit_deadline | local_dt('%d/%m %H:%M') }} (≈ {{ eta_minutes }} min)
+  </div>
+</div>
+
+{% if areas_blocks and areas_blocks|length > 0 %}
+<form method="post" id="edit-stock-form">
+  {% for area, blocks in areas_blocks.items() %}
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <h2 class="h6 m-0" style="text-transform: capitalize;">{{ area }}</h2>
+          <span class="badge area-badge">{{ area|replace('_',' ')|title }}</span>
+        </div>
+
+        {% for blk in blocks %}
+          <div class="mb-3">
+            <div class="fw-semibold mb-1">{{ blk.department }}</div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle table-center-qty" style="table-layout:fixed; width:100%;">
+                <colgroup>
+                  <col>                   {# Prodotto #}
+                  <col style="width:120px"> {# Q.tà #}
+                  <col>                   {# Note #}
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>Prodotto</th>
+                    <th class="text-end">Q.tà</th>
+                    <th class="text-muted">Note</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for it in blk.rows %}
+                    {% set qty_str = it.qty_requested|fmt_qty %}
+                    <tr>
+                      <td>{{ it.product.name }}</td>
+                      <td class="text-end" style="font-variant-numeric:tabular-nums;">
+                        <input type="text"
+                               inputmode="decimal"
+                               pattern="[0-9]+([,\.][0-9]{1,3})?"
+                               class="form-control form-control-sm text-end qty-input"
+                               name="qty_{{ it.product_id }}"
+                               value=""
+                               placeholder="{{ qty_str }}"
+                               data-original="{{ qty_str }}">
+                      </td>
+                      <td>
+                        <input type="text"
+                               class="form-control form-control-sm"
+                               name="note_{{ it.product_id }}"
+                               value="{{ it.note or '' }}"
+                               placeholder="Nota (facoltativa)">
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endfor %}
+
+  <div class="d-flex gap-2">
+    <button class="btn btn-primary" type="submit">Salva modifiche</button>
+    <a href="{{ url_for('client_sent_request_view', req_id=rh.id) }}" class="btn btn-outline-secondary">Annulla</a>
+  </div>
+</form>
+{% else %}
+  <div class="alert alert-info">Questa giacenza al momento non contiene righe modificabili.</div>
+  <a href="{{ url_for('client_sent_view', req_id=rh.id) }}" class="btn btn-outline-secondary mt-2">Torna al riepilogo</a>
+{% endif %}
+
+<style>
+.area-badge{
+  background: rgba(0,187,255,.10);
+  color: var(--brand-ink);
+  border: 1px solid var(--brand);
+  font-weight: 700;
+}
+.table thead th{
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.card{ border: 1px solid var(--border); }
+</style>
+
+<script>
+  // Se l'utente NON tocca la quantità (lascia il campo vuoto),
+  // rimettiamo il valore originale prima dell'invio:
+  (function () {
+    const form = document.getElementById('edit-stock-form');
+    if (!form) return;
+
+    form.addEventListener('submit', function () {
+      const qtyInputs = form.querySelectorAll('.qty-input');
+      qtyInputs.forEach(inp => {
+        const v = (inp.value || '').trim();
+        if (v === '') {
+          // ripristina il valore originale per evitare di azzerare involontariamente
+          const orig = inp.getAttribute('data-original') || '';
+          inp.value = orig;
+        } else {
+          // normalizza virgola in punto
+          inp.value = v.replace(',', '.');
+        }
+      });
+    });
+  })();
+</script>
+
+{% endblock %}
