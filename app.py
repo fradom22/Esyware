@@ -3856,6 +3856,66 @@ def reset_db_command():
     ensure_seed_data()
     print("DB resettato e ripopolato.")
 
+
+
+from datetime import datetime, timedelta
+
+@app.cli.command("cleanup-retention")
+def cleanup_retention():
+    """
+    Cancella requests + request_items e distribution_plans + distribution_lines
+    più vecchi di RETENTION_DAYS (default 35) usando giornata business 04:00→04:00 Europe/Rome.
+    NON tocca users/negozi.
+    """
+    days = int(os.environ.get("RETENTION_DAYS", "35"))
+
+    # 1) "Oggi business-day" = (ora Roma - 4 ore).date()
+    now_rome = datetime.now(TZ_ROME) if TZ_ROME else datetime.utcnow()
+    business_today = (now_rome - timedelta(hours=BUSINESS_CUTOFF_HOUR)).date()
+
+    # 2) cutoff business-day = oggi_business - days
+    cutoff_day = business_today - timedelta(days=days)
+    cutoff_ymd = cutoff_day.strftime("%Y-%m-%d")
+
+    # 3) inizio della giornata di cutoff (04:00 locali) convertito in UTC-naive
+    cutoff_start_utc, _ = local_business_day_range_utc(cutoff_ymd)
+
+    # --- REQUESTS (giacenze) ---
+    old_req_ids = [
+        rid for (rid,) in db.session.query(RequestHeader.id)
+        .filter(RequestHeader.created_at < cutoff_start_utc)
+        .all()
+    ]
+
+    if old_req_ids:
+        RequestItem.query.filter(RequestItem.request_id.in_(old_req_ids))\
+            .delete(synchronize_session=False)
+        RequestHeader.query.filter(RequestHeader.id.in_(old_req_ids))\
+            .delete(synchronize_session=False)
+
+    # --- PLANS (piani) ---
+    old_plan_ids = [
+        pid for (pid,) in db.session.query(DistributionPlan.id)
+        .filter(DistributionPlan.created_at < cutoff_start_utc)
+        .all()
+    ]
+
+    if old_plan_ids:
+        DistributionLine.query.filter(DistributionLine.plan_id.in_(old_plan_ids))\
+            .delete(synchronize_session=False)
+        DistributionPlan.query.filter(DistributionPlan.id.in_(old_plan_ids))\
+            .delete(synchronize_session=False)
+
+    db.session.commit()
+
+    print(
+        f"[cleanup-retention] OK days={days} "
+        f"business_today={business_today.isoformat()} "
+        f"cutoff_day={cutoff_day.isoformat()} cutoff_start_utc={cutoff_start_utc.isoformat()}Z "
+        f"deleted_requests={len(old_req_ids)} deleted_plans={len(old_plan_ids)}"
+    )
+
+    
     
 
 # --- dopo app = Flask(__name__) e dopo license_status(), prima delle route ---
