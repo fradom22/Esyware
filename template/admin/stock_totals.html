@@ -1,0 +1,516 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h4 mb-3">Giacenze totali</h1>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
+      <div>
+        <h2 class="h6 m-0">Somma per prodotto (ultime giacenze per negozio)</h2>
+      </div>
+
+      <!-- Ricerca stile "form di aggiunta": input + pulsanti stondati -->
+      <form method="get" class="d-flex align-items-end gap-2">
+        <div>
+          <input type="search"
+                 class="form-control rounded-4"
+                 name="q"
+                 value="{{ q or '' }}"
+                 placeholder="Cerca prodotto…"
+                 autocomplete="off">
+        </div>
+        <div class="pb-1">
+          <button class="btn btn-primary rounded-4" type="submit">
+            <i class="bi bi-search me-1"></i>Cerca
+          </button>
+          {% if q %}
+          <a class="btn btn-outline-secondary rounded-4" href="{{ url_for('admin_stock_totals') }}">
+            Reset
+          </a>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+
+    {% if rows|length == 0 %}
+      <div class="text-muted">Nessun dato disponibile{% if q %} per "<strong>{{ q }}</strong>"{% endif %}.</div>
+    {% else %}
+      {# Raggruppo per Reparto #}
+      {% for group in rows|groupby('product.department.name') %}
+
+        {# ---- fornitori unici per il reparto corrente ---- #}
+        {% set sup = namespace(names=[]) %}
+        {% for r in group.list %}
+          {% set sname =
+            (r.product.supplier.name
+              if (r.product is defined and r.product and r.product.supplier is defined
+                  and r.product.supplier and r.product.supplier.name)
+              else (r.product.supplier_name
+                    if (r.product is defined and r.product and r.product.supplier_name is defined
+                        and r.product.supplier_name)
+                    else (r.product.department.name
+                          if (r.product is defined and r.product and r.product.department
+                              and r.product.department.name) else 'Senza fornitore'))) %}
+          {% if sname not in sup.names %}
+            {% set _ = sup.names.append(sname) %}
+          {% endif %}
+        {% endfor %}
+
+        <!-- CHIP intestazione reparto + fornitori -->
+        <div class="group-chip mt-3 mb-2">
+          <div class="chip-title">{{ group.grouper or 'Senza reparto' }}</div>
+          {% if sup.names|length == 1 %}
+          {# se vuoi mostrare il fornitore unico qui, puoi farlo #}
+          {# <div class="chip-sub">{{ sup.names[0] }}</div> #}
+          {% endif %}
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-sm align-middle table-fixed w-100">
+            <colgroup>
+              <col style="width: 55%"><!-- Prodotto -->
+              <col style="width: 8ch"><!-- Totale -->
+              <col style="width: auto"><!-- Dettaglio -->
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Prodotto</th>
+                <th class="text-end">Totale</th>
+                <th class="ps-4 border-start">Dettaglio per negozio</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in group.list %}
+              <tr>
+                <td class="fw-semibold">{{ r.product.name }}</td>
+                <td class="text-end fw-semibold">{{ r.total|fmt_qty }}</td>
+                <td class="text-muted ps-4 border-start">
+                  {% for client_name, qty in r.breakdown.items() %}
+                    <span class="me-2">{{ client_name }}: {{ qty|fmt_qty }}</span>
+                  {% endfor %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endfor %}
+
+      <div class="subtle small mt-2">
+        * Calcolato sull’<strong>ultima</strong> giacenza inviata da ciascun negozio.
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ─────────────────────────────────────────────────────────────
+   STORICO (LAZY): NON arriva più da previous_days server-side.
+   Viene caricato quando l’utente apre l’accordion.
+   Richiede che tu passi history_days dal backend.
+   ───────────────────────────────────────────────────────────── #}
+<div class="card shadow-sm mt-4 last-history-card">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h2 class="h5 m-0 section-title">
+        Storico giacenze totali (ultimi {{ history_days or 5 }} disponibili)
+      </h2>
+    </div>
+
+    <div class="accordion" id="totalsHistory">
+      <div class="accordion-item" style="border:1px solid var(--border); border-radius:12px; overflow:hidden;">
+        <h2 class="accordion-header" id="hdr-history">
+          <button class="accordion-button collapsed" type="button"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#c-history"
+                  aria-expanded="false"
+                  aria-controls="c-history">
+            Apri storico
+          </button>
+        </h2>
+
+        <div id="c-history" class="accordion-collapse collapse"
+             aria-labelledby="hdr-history" data-bs-parent="#totalsHistory">
+          <div class="accordion-body">
+
+            <div id="historyStatus" class="subtle">Caricamento…</div>
+
+            <!-- controlli giorno -->
+            <div id="historyControls" class="d-none mb-3">
+              <div class="d-flex flex-wrap gap-2 align-items-end justify-content-between">
+                <div style="min-width:220px;">
+                  <label class="form-label small mb-1">Seleziona giorno</label>
+                  <select id="historyDaySelect" class="form-select rounded-4"></select>
+                </div>
+
+                <div class="d-flex gap-2">
+                  <button type="button" class="btn btn-outline-secondary rounded-4" id="historyPrevBtn">
+                    ←
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary rounded-4" id="historyNextBtn">
+                    →
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- qui renderizziamo SOLO il giorno scelto -->
+            <div id="historyContainer"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="subtle small mt-2">
+      * Lo storico viene caricato solo quando apri questa sezione.
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  let loaded = false;
+  let daysData = [];   // array di {date, rows}
+  let currentIndex = 0;
+
+  function escHtml(s){
+    return String(s ?? "").replace(/[&<>"']/g, c => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[c]));
+  }
+
+  function fmtQty(n){
+    if (n === null || n === undefined || Number.isNaN(n)) return "0";
+    const v = Math.round(Number(n) * 100) / 100;
+    return Number.isInteger(v) ? String(v) : String(v);
+  }
+
+  function groupByDepartment(rows){
+    const map = new Map();
+    for (const r of (rows || [])){
+      const dept = r.department || "Senza reparto";
+      if (!map.has(dept)) map.set(dept, []);
+      map.get(dept).push(r);
+    }
+    return map;
+  }
+
+  function renderSelectedDay(){
+    const container = document.getElementById("historyContainer");
+    container.innerHTML = "";
+
+    if (!daysData.length){
+      container.innerHTML = `<div class="subtle">Nessun dato disponibile nello storico.</div>`;
+      return;
+    }
+
+    const day = daysData[currentIndex];
+
+    // Titolo giornata
+    const title = document.createElement("div");
+    title.className = "fw-semibold mb-2";
+    title.textContent = `Totali del ${day.date}`;
+    container.appendChild(title);
+
+    const grouped = groupByDepartment(day.rows);
+
+    for (const [dept, rows] of grouped.entries()){
+      const chip = document.createElement("div");
+      chip.className = "group-chip mt-2 mb-2";
+      chip.innerHTML = `<div class="chip-title">${escHtml(dept)}</div>`;
+      container.appendChild(chip);
+
+      const resp = document.createElement("div");
+      resp.className = "table-responsive";
+
+      const table = document.createElement("table");
+      table.className = "table table-sm align-middle table-fixed w-100";
+      table.innerHTML = `
+        <colgroup>
+          <col style="width:55%">
+          <col style="width:8ch">
+          <col style="width:auto">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Prodotto</th>
+            <th class="text-end">Totale</th>
+            <th class="ps-4 border-start">Dettaglio per negozio</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+
+      const tbody = table.querySelector("tbody");
+
+      for (const r of rows){
+        const breakdownTxt = Object.entries(r.breakdown || {})
+          .map(([k,v]) => `<span class="me-2">${escHtml(k)}: ${escHtml(fmtQty(v))}</span>`)
+          .join(" ");
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="fw-semibold">${escHtml(r.product_name)}</td>
+          <td class="text-end fw-semibold">${escHtml(fmtQty(r.total))}</td>
+          <td class="text-muted ps-4 border-start">${breakdownTxt}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+
+      resp.appendChild(table);
+      container.appendChild(resp);
+    }
+
+    // aggiorna select e bottoni
+    const select = document.getElementById("historyDaySelect");
+    if (select) select.value = String(currentIndex);
+
+    const prevBtn = document.getElementById("historyPrevBtn");
+    const nextBtn = document.getElementById("historyNextBtn");
+    if (prevBtn) prevBtn.disabled = (currentIndex <= 0);
+    if (nextBtn) nextBtn.disabled = (currentIndex >= daysData.length - 1);
+  }
+
+  function initControls(){
+    const controls = document.getElementById("historyControls");
+    const select = document.getElementById("historyDaySelect");
+    const prevBtn = document.getElementById("historyPrevBtn");
+    const nextBtn = document.getElementById("historyNextBtn");
+
+    // popola select (mostro le date)
+    select.innerHTML = "";
+    daysData.forEach((d, idx) => {
+      const opt = document.createElement("option");
+      opt.value = String(idx);
+      opt.textContent = d.date;
+      select.appendChild(opt);
+    });
+
+    // default: giorno più recente (index 0) perché la tua API ritorna 1..N (ieri, 2gg fa,...)
+    currentIndex = 0;
+
+    select.addEventListener("change", () => {
+      currentIndex = parseInt(select.value, 10) || 0;
+      renderSelectedDay();
+    });
+
+    prevBtn.addEventListener("click", () => {
+      if (currentIndex > 0){
+        currentIndex -= 1;
+        renderSelectedDay();
+      }
+    });
+
+    nextBtn.addEventListener("click", () => {
+      if (currentIndex < daysData.length - 1){
+        currentIndex += 1;
+        renderSelectedDay();
+      }
+    });
+
+    controls.classList.remove("d-none");
+    renderSelectedDay();
+  }
+
+  async function loadHistory(){
+    if (loaded) return;
+    loaded = true;
+
+    const statusEl = document.getElementById("historyStatus");
+
+    const params = new URLSearchParams();
+    params.set("days", "{{ history_days or 5 }}");
+    {% if q %}
+      params.set("q", "{{ q|e }}");
+    {% endif %}
+
+    try{
+      const res = await fetch(`/admin/giacenze/history?${params.toString()}`, { credentials: "same-origin" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+
+      const data = await res.json();
+      if (statusEl) statusEl.remove();
+
+      daysData = (data && data.days) ? data.days : [];
+      initControls();
+    } catch (e){
+      console.error(e);
+      if (statusEl) statusEl.textContent = "Errore nel caricamento dello storico.";
+    }
+  }
+
+  const collapseEl = document.getElementById("c-history");
+  if (collapseEl){
+    collapseEl.addEventListener("show.bs.collapse", loadHistory);
+  }
+})();
+</script>
+
+
+<script>
+(function(){
+  let loaded = false;
+
+  function escHtml(s){
+    return String(s ?? "").replace(/[&<>"']/g, c => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[c]));
+  }
+
+  function fmtQty(n){
+    if (n === null || n === undefined || Number.isNaN(n)) return "0";
+    // 2 decimali max, senza trailing inutili
+    const v = Math.round(Number(n) * 100) / 100;
+    return (Number.isInteger(v) ? String(v) : String(v));
+  }
+
+  function groupByDepartment(rows){
+    const map = new Map();
+    for (const r of (rows || [])){
+      const dept = r.department || "Senza reparto";
+      if (!map.has(dept)) map.set(dept, []);
+      map.get(dept).push(r);
+    }
+    return map;
+  }
+
+  function renderDay(day, container){
+    const wrap = document.createElement("div");
+    wrap.style.marginBottom = "16px";
+
+    const title = document.createElement("div");
+    title.className = "fw-semibold mb-2";
+    title.textContent = `Totali del ${day.date}`;
+    wrap.appendChild(title);
+
+    const grouped = groupByDepartment(day.rows);
+
+    for (const [dept, rows] of grouped.entries()){
+      const chip = document.createElement("div");
+      chip.className = "group-chip mt-2 mb-2";
+      chip.innerHTML = `<div class="chip-title">${escHtml(dept)}</div>`;
+      wrap.appendChild(chip);
+
+      const resp = document.createElement("div");
+      resp.className = "table-responsive";
+
+      const table = document.createElement("table");
+      table.className = "table table-sm align-middle table-fixed w-100";
+      table.innerHTML = `
+        <colgroup>
+          <col style="width:55%">
+          <col style="width:8ch">
+          <col style="width:auto">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Prodotto</th>
+            <th class="text-end">Totale</th>
+            <th class="ps-4 border-start">Dettaglio per negozio</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+
+      const tbody = table.querySelector("tbody");
+
+      for (const r of rows){
+        const breakdownTxt = Object.entries(r.breakdown || {})
+          .map(([k,v]) => `<span class="me-2">${escHtml(k)}: ${escHtml(fmtQty(v))}</span>`)
+          .join(" ");
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="fw-semibold">${escHtml(r.product_name)}</td>
+          <td class="text-end fw-semibold">${escHtml(fmtQty(r.total))}</td>
+          <td class="text-muted ps-4 border-start">${breakdownTxt}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+
+      resp.appendChild(table);
+      wrap.appendChild(resp);
+    }
+
+    container.appendChild(wrap);
+  }
+
+  async function loadHistory(){
+    if (loaded) return;
+    loaded = true;
+
+    const statusEl = document.getElementById("historyStatus");
+    const container = document.getElementById("historyContainer");
+
+    const params = new URLSearchParams();
+    params.set("days", "{{ history_days or 5 }}");
+    {% if q %}
+      params.set("q", "{{ q|e }}");
+    {% endif %}
+
+    try{
+      const res = await fetch(`/admin/giacenze/history?${params.toString()}`, { credentials: "same-origin" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+
+      const data = await res.json();
+      if (statusEl) statusEl.remove();
+
+      const days = (data && data.days) ? data.days : [];
+      if (!days.length){
+        const empty = document.createElement("div");
+        empty.className = "subtle";
+        empty.textContent = "Nessun dato disponibile nello storico.";
+        container.appendChild(empty);
+        return;
+      }
+
+      for (const day of days){
+        renderDay(day, container);
+      }
+    } catch (e){
+      console.error(e);
+      if (statusEl) statusEl.textContent = "Errore nel caricamento dello storico.";
+    }
+  }
+
+  // Bootstrap collapse event
+  const collapseEl = document.getElementById("c-history");
+  if (collapseEl){
+    collapseEl.addEventListener("show.bs.collapse", loadHistory);
+  }
+})();
+</script>
+
+{% endblock %}
+
+<style>
+  .table-fixed{ table-layout: fixed; }
+  .table td.text-end{ font-variant-numeric: tabular-nums; }
+
+  /* chip reparto + fornitori (stesso stile degli altri) */
+  .group-chip{
+    display:inline-block;
+    padding:.45rem .75rem;
+    border-radius:14px;
+    background:#f7f8fa;
+    border:1px solid var(--border);
+    box-shadow: 0 4px 14px rgba(0,0,0,.06) inset, 0 6px 16px rgba(0,0,0,.04);
+  }
+  .chip-title{ font-weight:800; line-height:1.1; }
+  .chip-sub{
+    margin-top:.15rem;
+    font-size:.92rem;
+    font-weight:600;
+    color: var(--muted);
+  }
+  .chip-suppliers{ margin-top:.2rem; display:flex; flex-wrap:wrap; gap:.25rem .35rem; }
+  .chip-badge{
+    display:inline-block;
+    padding:.15rem .5rem;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:#fff;
+    font-size:.85rem;
+    font-weight:600;
+    line-height:1.1;
+  }
+</style>
